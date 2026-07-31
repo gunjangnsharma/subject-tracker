@@ -66,6 +66,25 @@ Last updated: 2026-08-01
 | W4 | `POST /chapters/<id>/completion` updates value | redirect + persisted |
 | W5 | `GET /today` and `GET /week` return 200 | 200 |
 
+### 2.6 Activity log (`test_activity.py`) — milestone: dashboard
+| # | Case | Expectation |
+|---|------|-------------|
+| A1 | Set completion 0→5 on 120-min chapter | logs +60 minutes on the given date |
+| A2 | Then 5→3 | logs −24 minutes (36−60) |
+| A3 | Set same value again | no event logged |
+| A4 | No `when` given | event dated today |
+
+### 2.7 Dashboard aggregation (`test_dashboard.py`) — milestone: dashboard
+| # | Case | Expectation |
+|---|------|-------------|
+| B1 | Overall progress | sums all subjects' totals/completed |
+| B2 | Today stats | planned/done/backlog counts + studied minutes correct |
+| B3 | Today done count | finished planned chapter counted |
+| B4 | Week per-day studied | positive deltas bucketed to the right weekday |
+| B5 | Week per-day planned | assignment durations bucketed per day |
+| B6 | Week shape | 7 days Mon–Sun, correct start |
+| B7 | Empty dashboard | zeros, no errors |
+
 ## 3. Manual QA checklist (before a release)
 
 - [ ] Add a subject, module, and a 90-min video chapter; header shows `1.5h`.

@@ -5,9 +5,13 @@ def test_dashboard_ok(client):  # W1
     assert client.get("/").status_code == 200
 
 
+def test_subjects_page_ok(client):
+    assert client.get("/subjects").status_code == 200
+
+
 def test_create_subject_appears(client):  # W2
     client.post("/subjects", data={"name": "Algorithms"}, follow_redirects=True)
-    body = client.get("/").get_data(as_text=True)
+    body = client.get("/subjects").get_data(as_text=True)
     assert "Algorithms" in body
 
 

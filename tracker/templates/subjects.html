@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}Subjects &middot; Subject Tracker{% endblock %}
+
+{% block content %}
+<h1 class="reveal">Subjects</h1>
+
+<form class="inline-form reveal" method="post" action="{{ url_for('subjects.create_subject') }}">
+  <input type="text" name="name" placeholder="New subject name" required>
+  <button type="submit">Add subject</button>
+</form>
+
+{% if subjects %}
+  <ul class="card-list">
+    {% for subject in subjects %}
+      {% set p = subject.progress %}
+      <li class="card reveal" style="--i: {{ loop.index0 }}">
+        <div class="card-head">
+          <a class="card-title" href="{{ url_for('subjects.subject_detail', subject_id=subject.id) }}">
+            {{ subject.name }}
+          </a>
+          <form method="post" action="{{ url_for('subjects.delete_subject', subject_id=subject.id) }}"
+                onsubmit="return confirm('Delete subject and all its modules/chapters?');">
+            <button class="danger" type="submit">Delete</button>
+          </form>
+        </div>
+        <div class="muted">{{ subject.modules|length }} module(s)</div>
+        {{ ui.progress_bar(p) }}
+      </li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p class="empty">No subjects yet. Add your first one above.</p>
+{% endif %}
+{% endblock %}

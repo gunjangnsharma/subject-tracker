@@ -3,7 +3,7 @@
 {% block title %}{{ subject.name }} &middot; Subject Tracker{% endblock %}
 
 {% block content %}
-<p class="breadcrumb"><a href="{{ url_for('subjects.dashboard') }}">&larr; Subjects</a></p>
+<p class="breadcrumb"><a href="{{ url_for('subjects.index') }}">&larr; Subjects</a></p>
 <h1>{{ subject.name }}</h1>
 {{ ui.progress_bar(subject.progress) }}
 

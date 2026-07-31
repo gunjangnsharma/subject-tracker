@@ -81,6 +81,9 @@ class PlanningService:
         self._session.commit()
         return assignment
 
+    def assignments_in_range(self, start: date, end: date) -> list[PlanAssignment]:
+        return self._plans.in_range(start, end)
+
     def today_plan(self, today: date) -> DayPlan:
         planned = [_to_item(a) for a in self._plans.on_date(today)]
         backlog = [

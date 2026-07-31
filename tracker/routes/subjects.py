@@ -13,10 +13,10 @@ def _service() -> SubjectService:
     return SubjectService(g.session)
 
 
-@bp.get("/")
-def dashboard():
+@bp.get("/subjects")
+def index():
     subjects = _service().list_subjects()
-    return render_template("dashboard.html", subjects=subjects)
+    return render_template("subjects.html", subjects=subjects)
 
 
 @bp.post("/subjects")
@@ -25,13 +25,13 @@ def create_subject():
         _service().add_subject(request.form.get("name", ""))
     except ValueError as exc:
         flash(str(exc), "error")
-    return redirect(url_for("subjects.dashboard"))
+    return redirect(url_for("subjects.index"))
 
 
 @bp.post("/subjects/<int:subject_id>/delete")
 def delete_subject(subject_id: int):
     _service().delete_subject(subject_id)
-    return redirect(url_for("subjects.dashboard"))
+    return redirect(url_for("subjects.index"))
 
 
 @bp.get("/subjects/<int:subject_id>")
@@ -58,7 +58,7 @@ def delete_module(module_id: int):
     subject_id = module.subject_id if module else None
     service.delete_module(module_id)
     if subject_id is None:
-        return redirect(url_for("subjects.dashboard"))
+        return redirect(url_for("subjects.index"))
     return redirect(url_for("subjects.subject_detail", subject_id=subject_id))
 
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from sqlalchemy import Date, Enum, ForeignKey, Integer, String
+from sqlalchemy import Date, Enum, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from tracker import domain
@@ -74,6 +74,10 @@ class Chapter(Base):
         back_populates="chapter",
         cascade="all, delete-orphan",
     )
+    events: Mapped[list["ProgressEvent"]] = relationship(
+        back_populates="chapter",
+        cascade="all, delete-orphan",
+    )
 
     @property
     def progress(self) -> domain.Progress:
@@ -101,3 +105,24 @@ class PlanAssignment(Base):
     planned_date: Mapped[date] = mapped_column(Date, nullable=False)
 
     chapter: Mapped["Chapter"] = relationship(back_populates="assignments")
+
+
+class ProgressEvent(Base):
+    """A record of study activity: how many minutes of progress happened on a day.
+
+    Written whenever a chapter's completion changes. ``minutes_delta`` is the
+    change in completed minutes (positive when advancing, negative if reduced).
+    This log is what powers 'today' and 'this week' *activity* — the current
+    completion value alone cannot tell us *when* the work happened.
+    """
+
+    __tablename__ = "progress_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    chapter_id: Mapped[int] = mapped_column(
+        ForeignKey("chapters.id", ondelete="CASCADE"), nullable=False
+    )
+    occurred_on: Mapped[date] = mapped_column(Date, nullable=False)
+    minutes_delta: Mapped[float] = mapped_column(Float, nullable=False)
+
+    chapter: Mapped["Chapter"] = relationship(back_populates="events")

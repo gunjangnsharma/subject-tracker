@@ -8,9 +8,10 @@
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="{{ url_for('subjects.dashboard') }}">📚 Subject Tracker</a>
+    <a class="brand" href="{{ url_for('dashboard.home') }}">📚 Subject Tracker</a>
     <nav>
-      <a href="{{ url_for('subjects.dashboard') }}">Subjects</a>
+      <a href="{{ url_for('dashboard.home') }}">Dashboard</a>
+      <a href="{{ url_for('subjects.index') }}">Subjects</a>
       <a href="{{ url_for('planning.today') }}">Today</a>
       <a href="{{ url_for('planning.week') }}">This Week</a>
     </nav>
@@ -29,5 +30,9 @@
 
     {% block content %}{% endblock %}
   </main>
+
+  <script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+  {% block scripts %}{% endblock %}
 </body>
 </html>

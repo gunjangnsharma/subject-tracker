@@ -37,9 +37,11 @@ def create_app(config: type[Config] | Config = Config) -> Flask:
     def _hours_filter(minutes: float) -> str:
         return f"{minutes_to_hours(minutes):g}"
 
+    from tracker.routes.dashboard import bp as dashboard_bp
     from tracker.routes.planning import bp as planning_bp
     from tracker.routes.subjects import bp as subjects_bp
 
+    app.register_blueprint(dashboard_bp)
     app.register_blueprint(subjects_bp)
     app.register_blueprint(planning_bp)
 

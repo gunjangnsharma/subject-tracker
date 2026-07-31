@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 from sqlalchemy.orm import Session
 
 from tracker import domain
 from tracker.models import CHAPTER_KINDS, Chapter, Subject
+from tracker.repositories.activity_repository import ActivityRepository
 from tracker.repositories.chapter_repository import ChapterRepository
 from tracker.repositories.subject_repository import ModuleRepository, SubjectRepository
 
@@ -18,6 +21,7 @@ class SubjectService:
         self._subjects = SubjectRepository(session)
         self._modules = ModuleRepository(session)
         self._chapters = ChapterRepository(session)
+        self._activity = ActivityRepository(session)
 
     # --- Subjects ----------------------------------------------------------
     def add_subject(self, name: str) -> Subject:
@@ -80,12 +84,19 @@ class SubjectService:
     def get_chapter(self, chapter_id: int) -> Chapter | None:
         return self._chapters.get(chapter_id)
 
-    def set_completion(self, chapter_id: int, completion: int) -> Chapter:
+    def set_completion(
+        self, chapter_id: int, completion: int, when: date | None = None
+    ) -> Chapter:
         chapter = self._chapters.get(chapter_id)
         if chapter is None:
             raise ValueError("Chapter not found.")
+        # Log the study activity: the change in completed minutes on `when`.
+        before = chapter.progress.completed_minutes
         # Clamp via domain rules so out-of-range input never persists.
         self._chapters.set_completion(chapter, domain.clamp_completion(completion))
+        delta = chapter.progress.completed_minutes - before
+        if delta != 0:
+            self._activity.add(chapter_id, when or date.today(), delta)
         self._session.commit()
         return chapter
 

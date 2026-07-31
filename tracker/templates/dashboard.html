@@ -1,35 +1,74 @@
 {% extends "base.html" %}
-{% import "_macros.html" as ui %}
-{% block title %}Subjects &middot; Subject Tracker{% endblock %}
+{% block title %}Dashboard &middot; Subject Tracker{% endblock %}
 
 {% block content %}
-<h1>Subjects</h1>
+<h1 class="reveal">Dashboard</h1>
 
-<form class="inline-form" method="post" action="{{ url_for('subjects.create_subject') }}">
-  <input type="text" name="name" placeholder="New subject name" required>
-  <button type="submit">Add subject</button>
-</form>
+{% if view.subjects %}
+<section class="hero reveal">
+  <div class="hero-chart">
+    <canvas id="overallChart" width="180" height="180"></canvas>
+    <div class="hero-center">
+      <span class="hero-pct count" data-to="{{ view.overall.percent }}" data-decimals="1">0</span><span class="hero-unit">%</span>
+      <div class="muted">complete</div>
+    </div>
+  </div>
+  <div class="hero-stats">
+    <h2>Overall progress</h2>
+    <p class="muted">Across {{ view.subjects|length }} subject(s)</p>
+    <div class="hero-figures">
+      <div><span class="big count" data-to="{{ view.overall.completed_hours }}" data-decimals="2">0</span><span class="unit">h done</span></div>
+      <div><span class="big count" data-to="{{ view.overall.remaining_hours }}" data-decimals="2">0</span><span class="unit">h left</span></div>
+      <div><span class="big count" data-to="{{ view.overall.total_hours }}" data-decimals="2">0</span><span class="unit">h total</span></div>
+    </div>
+  </div>
+</section>
 
-{% if subjects %}
-  <ul class="card-list">
-    {% for subject in subjects %}
-      {% set p = subject.progress %}
-      <li class="card">
-        <div class="card-head">
-          <a class="card-title" href="{{ url_for('subjects.subject_detail', subject_id=subject.id) }}">
-            {{ subject.name }}
-          </a>
-          <form method="post" action="{{ url_for('subjects.delete_subject', subject_id=subject.id) }}"
-                onsubmit="return confirm('Delete subject and all its modules/chapters?');">
-            <button class="danger" type="submit">Delete</button>
-          </form>
-        </div>
-        <div class="muted">{{ subject.modules|length }} module(s)</div>
-        {{ ui.progress_bar(p) }}
-      </li>
-    {% endfor %}
-  </ul>
+<section class="stat-grid">
+  <div class="stat-card accent-green reveal" style="--i:0">
+    <div class="stat-value"><span class="count" data-to="{{ (view.today.studied_minutes/60)|round(2) }}" data-decimals="2">0</span>h</div>
+    <div class="stat-label">Studied today</div>
+  </div>
+  <div class="stat-card accent-blue reveal" style="--i:1">
+    <div class="stat-value"><span class="count" data-to="{{ view.today.done_count }}">0</span> / <span class="count" data-to="{{ view.today.planned_count }}">0</span></div>
+    <div class="stat-label">Today's chapters done</div>
+  </div>
+  <div class="stat-card accent-amber reveal" style="--i:2">
+    <div class="stat-value"><span class="count" data-to="{{ view.today.backlog_count }}">0</span></div>
+    <div class="stat-label">Backlog items</div>
+  </div>
+  <div class="stat-card accent-violet reveal" style="--i:3">
+    <div class="stat-value"><span class="count" data-to="{{ (view.week.studied_total/60)|round(2) }}" data-decimals="2">0</span>h</div>
+    <div class="stat-label">Studied this week</div>
+  </div>
+</section>
+
+<section class="chart-grid">
+  <div class="panel reveal">
+    <h2>Subject breakdown <span class="muted">(hours)</span></h2>
+    <canvas id="subjectsChart" height="240"></canvas>
+  </div>
+  <div class="panel reveal">
+    <h2>This week's activity <span class="muted">(studied vs planned, hours)</span></h2>
+    <canvas id="weekChart" height="240"></canvas>
+  </div>
+</section>
 {% else %}
-  <p class="empty">No subjects yet. Add your first one above.</p>
+<section class="hero reveal">
+  <div class="hero-stats">
+    <h2>Welcome 👋</h2>
+    <p class="muted">No subjects yet. Add one to start tracking your progress.</p>
+    <a class="btn-link" href="{{ url_for('subjects.index') }}">Add your first subject →</a>
+  </div>
+</section>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script id="dashboard-data" type="application/json">{{ charts_json|safe }}</script>
+<script>
+  window.SubjectTracker.renderDashboard(
+    JSON.parse(document.getElementById('dashboard-data').textContent)
+  );
+</script>
 {% endblock %}

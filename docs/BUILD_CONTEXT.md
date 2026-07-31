@@ -32,6 +32,7 @@ Subject 1───* Module 1───* Chapter
 | **Module** | `id`, `subject_id`, `name` | A unit inside a subject. |
 | **Chapter** | `id`, `module_id`, `title`, `kind` (`video`\|`text`), `duration_minutes`, `completion` (0–10) | The atomic trackable item. |
 | **PlanAssignment** | `id`, `chapter_id`, `planned_date` (DATE) | "I plan to do this chapter on this day." Week is derived from the date. |
+| **ProgressEvent** | `id`, `chapter_id`, `occurred_on` (DATE), `minutes_delta` | Study-activity log: the change in completed minutes on a day. Powers today/week *activity* (the current completion value can't say *when* work happened). |
 
 ## 3. Core business rules
 
@@ -102,11 +103,25 @@ run.py                   Dev entry point.
 - **D**ependency inversion: `domain.py` (the rules) knows nothing about Flask or SQLAlchemy,
   so the calculation logic is unit-testable in isolation and reusable.
 
+### 3.5 Dashboard aggregation (activity tracking)
+The dashboard (`/`) combines three things, computed by `DashboardService.build(today)`:
+- **Overall progress** — sum of all subjects' roll-ups (doughnut chart).
+- **Today** — chapters planned today, how many done, backlog count, and minutes
+  *studied today* (sum of positive `ProgressEvent.minutes_delta` on today's date).
+- **This week** — a 7-day (Mon–Sun) breakdown of *studied* minutes (from events)
+  vs *planned* minutes (durations of chapters assigned to each day). Bar chart.
+
+Charts are rendered client-side with a **locally vendored Chart.js**
+(`static/vendor/chart.umd.min.js`); the route passes a small JSON payload.
+Entrance animations (count-up numbers, reveal-on-scroll) live in `static/app.js`
+and respect `prefers-reduced-motion`.
+
 ## 5. Routes (UI + actions)
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET  | `/` | Dashboard: all subjects with progress bars. |
+| GET  | `/` | **Dashboard**: overall progress + today + week activity, with charts. |
+| GET  | `/subjects` | Manage subjects (list with progress bars). |
 | POST | `/subjects` | Add subject. |
 | POST | `/subjects/<id>/delete` | Delete subject (cascades modules/chapters). |
 | GET  | `/subjects/<id>` | Subject detail: modules + chapters + roll-ups. |
