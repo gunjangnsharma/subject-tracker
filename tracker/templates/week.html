@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}This Week &middot; Subject Tracker{% endblock %}
+
+{% block content %}
+<h1>This Week <span class="muted">{{ plan.start }} → {{ plan.end }}</span></h1>
+
+<section>
+  <h2>This week's plan</h2>
+  {{ ui.plan_list(plan.planned) }}
+</section>
+
+<section>
+  <h2>Weekly backlog <span class="muted">(unfinished from before this week)</span></h2>
+  {{ ui.plan_list(plan.backlog, show_from=true) }}
+</section>
+{% endblock %}

@@ -1,0 +1,44 @@
+{# Reusable progress bar. `p` is a domain.Progress. #}
+{% macro progress_bar(p) %}
+  <div class="progress" title="{{ p.completed_hours }}h of {{ p.total_hours }}h">
+    <div class="progress-fill" style="width: {{ p.percent }}%"></div>
+    <span class="progress-label">
+      {{ p.percent }}% &middot; {{ p.completed_hours }}h / {{ p.total_hours }}h done
+      &middot; {{ p.remaining_hours }}h left
+    </span>
+  </div>
+{% endmacro %}
+
+{# Small pill showing a chapter's kind. #}
+{% macro kind_pill(kind) %}
+  <span class="pill pill-{{ kind }}">{{ kind }}</span>
+{% endmacro %}
+
+{# A list of PlannedItem. `show_from` labels the original planned date (backlog). #}
+{% macro plan_list(items, show_from=false) %}
+  {% if items %}
+    <ul class="plan-items">
+      {% for item in items %}
+        {% set p = item.progress %}
+        <li class="plan-item {{ 'done' if item.is_done else '' }}">
+          <div class="plan-item-main">
+            <span class="plan-title">{{ item.title }}</span>
+            {{ kind_pill(item.chapter.kind) }}
+            <span class="muted">— {{ item.subject_name }} / {{ item.module_name }}</span>
+          </div>
+          <div class="plan-item-meta">
+            {% if show_from %}<span class="carried">carried from {{ item.planned_date }}</span>{% endif %}
+            <span class="muted">{{ p.completed_hours }}h / {{ p.total_hours }}h ({{ p.percent }}%)</span>
+            <form class="completion-form inline" method="post"
+                  action="{{ url_for('subjects.update_completion', chapter_id=item.chapter.id) }}">
+              <input type="number" name="completion" min="0" max="10" value="{{ item.chapter.completion }}">
+              <button type="submit">Save</button>
+            </form>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty">Nothing here.</p>
+  {% endif %}
+{% endmacro %}

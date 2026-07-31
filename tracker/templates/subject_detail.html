@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ subject.name }} &middot; Subject Tracker{% endblock %}
+
+{% block content %}
+<p class="breadcrumb"><a href="{{ url_for('subjects.dashboard') }}">&larr; Subjects</a></p>
+<h1>{{ subject.name }}</h1>
+{{ ui.progress_bar(subject.progress) }}
+
+<form class="inline-form" method="post" action="{{ url_for('subjects.create_module', subject_id=subject.id) }}">
+  <input type="text" name="name" placeholder="New module name" required>
+  <button type="submit">Add module</button>
+</form>
+
+{% for module in subject.modules %}
+  <section class="module">
+    <div class="card-head">
+      <h2>{{ module.name }}</h2>
+      <form method="post" action="{{ url_for('subjects.delete_module', module_id=module.id) }}"
+            onsubmit="return confirm('Delete this module and its chapters?');">
+        <button class="danger small" type="submit">Delete module</button>
+      </form>
+    </div>
+    {{ ui.progress_bar(module.progress) }}
+
+    <table class="chapters">
+      <thead>
+        <tr>
+          <th>Chapter</th><th>Type</th><th>Length</th>
+          <th>Completion (0–10)</th><th>Plan</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for chapter in module.chapters %}
+          <tr class="{{ 'done' if chapter.is_done else '' }}">
+            <td>{{ chapter.title }}</td>
+            <td>{{ ui.kind_pill(chapter.kind) }}</td>
+            <td>{{ chapter.duration_minutes|hours }}h</td>
+            <td>
+              <form class="completion-form" method="post"
+                    action="{{ url_for('subjects.update_completion', chapter_id=chapter.id) }}">
+                <input type="number" name="completion" min="0" max="10"
+                       value="{{ chapter.completion }}">
+                <button type="submit">Save</button>
+                <span class="muted">{{ chapter.progress.completed_hours }}h done</span>
+              </form>
+            </td>
+            <td>
+              <form class="plan-form" method="post"
+                    action="{{ url_for('planning.assign', chapter_id=chapter.id) }}">
+                <input type="date" name="planned_date">
+                <button type="submit">Plan</button>
+              </form>
+            </td>
+            <td>
+              <form method="post" action="{{ url_for('subjects.delete_chapter', chapter_id=chapter.id) }}"
+                    onsubmit="return confirm('Delete this chapter?');">
+                <button class="danger small" type="submit">✕</button>
+              </form>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="6" class="muted">No chapters yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <form class="chapter-form" method="post"
+          action="{{ url_for('subjects.create_chapter', module_id=module.id) }}">
+      <input type="text" name="title" placeholder="Chapter title" required>
+      <select name="kind">
+        <option value="video">video</option>
+        <option value="text">text</option>
+      </select>
+      <input type="number" name="duration_minutes" min="0" placeholder="minutes" required>
+      <button type="submit">Add chapter</button>
+    </form>
+  </section>
+{% else %}
+  <p class="empty">No modules yet. Add one above.</p>
+{% endfor %}
+{% endblock %}
