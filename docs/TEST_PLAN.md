@@ -1,7 +1,9 @@
 # Subject Tracker — Test Plan
 
-Built in parallel with the app. Each milestone adds the tests listed here.
-Run everything with `pytest` from the `subject-tracker/` directory.
+Every test and what it verifies. Built alongside the app. Run from
+`subject-tracker/` with `pytest` (77 tests). Suite runs against a fresh in-memory
+SQLite database per test, so tests are isolated, deterministic and never touch the
+dev DB.
 
 Last updated: 2026-08-01
 
@@ -9,133 +11,157 @@ Last updated: 2026-08-01
 
 ## 1. Strategy
 
-- **Unit tests** for pure logic in `tracker/domain.py` (no DB, no Flask) — fast, deterministic.
-- **Integration tests** for services against an in-memory SQLite DB — verify repos + rules together.
-- **Route/smoke tests** via Flask's test client — verify pages render and actions persist.
-- Dates that drive backlog logic are injected (functions take a `today` argument), so tests
-  never depend on the real clock.
+- **Unit tests** for pure logic in `tracker/domain.py` — no DB, no Flask.
+- **Integration tests** for services against an in-memory SQLite DB — repos + rules together.
+- **Route / smoke tests** via Flask's test client — pages render, actions persist, auth gates.
+- Dates that drive backlog/activity are **injected** (functions take `today` / `when`),
+  so tests never depend on the wall clock.
 
-## 2. Test matrix
+## 2. Fixtures (`tests/conftest.py`)
 
-### 2.1 Domain math (`test_domain.py`) — milestone: core-domain
-| # | Case | Expectation |
-|---|------|-------------|
-| D1 | `minutes_to_hours(90)` | `1.5` |
-| D2 | `minutes_to_hours(0)` | `0.0` |
-| D3 | `completed_minutes(120, 5)` | `60` (2h video half done) |
-| D4 | `completed_minutes(60, 10)` | `60` (fully done) |
-| D5 | `completed_minutes(60, 0)` | `0` |
-| D6 | `percent(0, 0)` | `0` (no divide-by-zero) |
-| D7 | `percent(30, 120)` | `25.0` |
-| D8 | completion clamped to 0–10 (reject 11 / -1) | raises / clamps |
+| Fixture | Provides |
+|---------|----------|
+| `app` | A `create_app(TestConfig)` instance (new in-memory DB → full isolation). |
+| `session` | A DB session bound to that app's database. |
+| `user_id` | A registered non-admin user `tester`; returns its id for scoping services. |
+| `client` | Flask test client (not logged in). |
+| `auth_client` | Flask test client with `tester` registered **and logged in**. |
 
-### 2.2 Roll-ups (`test_rollups.py`) — milestone: core-domain
-| # | Case | Expectation |
-|---|------|-------------|
-| R1 | Module with chapters 60@10 and 120@5 | total 180, completed 120, remaining 60 |
-| R2 | Subject with two modules | totals sum correctly |
-| R3 | Empty module | total 0, completed 0, percent 0 |
-| R4 | Deleting a subject removes its modules and chapters (cascade) | counts drop to 0 |
+## 3. Test inventory — each test and what it checks
 
-### 2.3 Subject/module/chapter CRUD (`test_subjects.py`) — milestone: core-domain
-| # | Case | Expectation |
-|---|------|-------------|
-| S1 | Add subject → appears in list | present |
-| S2 | Add module under subject | linked to subject |
-| S3 | Add chapter under module (video, 90 min) | stored, completion default 0 |
-| S4 | Update completion to 5 | persisted, completed minutes reflect it |
-| S5 | Delete chapter | gone; module total recalculated |
+### 3.1 `test_domain.py` — pure math (7)
+| Test | Checks |
+|------|--------|
+| `test_minutes_to_hours` | `90 → 1.5`, `0 → 0.0`. |
+| `test_completed_minutes` | `120@5 → 60`, `60@10 → 60`, `60@0 → 0`. |
+| `test_percent_safe_and_correct` | `percent(0,0) → 0` (no divide-by-zero); `percent(30,120) → 25.0`. |
+| `test_completion_clamped` | Clamp `11 → 10`, `-1 → 0`, `7 → 7`. |
+| `test_is_done` | `10 → True`, `9 → False`. |
+| `test_week_bounds_monday_to_sunday` | A Wednesday → (that week's Monday, Sunday). |
+| `test_progress_rollup_addition` | `sum_progress` adds totals/completed/remaining and computes percent. |
 
-### 2.4 Planning & backlog (`test_planning.py`) — milestone: planning
-| # | Case | Expectation |
-|---|------|-------------|
-| P1 | Assign chapter to today → shows in today's plan | present, not backlog |
-| P2 | Chapter planned yesterday, completion 5 → today's backlog | present as carried-over |
-| P3 | Chapter planned yesterday, completion 10 → NOT in backlog | absent |
-| P4 | Chapter planned last week, incomplete → weekly backlog | present |
-| P5 | Chapter planned earlier this week → week plan, not weekly backlog | present in plan |
-| P6 | Finishing a backlog chapter (set 10) removes it from today & week backlog | absent after |
-| P7 | `week_bounds(Wed)` returns Mon..Sun of that week | correct range |
+### 3.2 `test_subjects.py` — subject/module/chapter service + roll-ups (9)
+| Test | Checks |
+|------|--------|
+| `test_add_and_list_subject` | Added subject appears in the user's list. |
+| `test_add_module_and_chapter` | Module links to subject; new chapter defaults completion 0, stores duration. |
+| `test_update_completion_reflects_minutes` | Set 5 on a 120-min chapter → 60 completed minutes. |
+| `test_completion_is_clamped` | Set 99 → persisted as 10 (clamped). |
+| `test_module_and_subject_rollup` | Module and subject totals/completed/remaining sum correctly. |
+| `test_empty_module_rollup` | Empty module → total 0, percent 0 (no error). |
+| `test_delete_subject_cascades` | Deleting a subject removes its modules and chapters. |
+| `test_delete_chapter_recalculates` | Deleting a chapter recomputes the module total. |
+| `test_invalid_inputs_raise` | Blank subject name and unknown chapter kind raise `ValueError`. |
 
-### 2.5 Routes / smoke (`test_routes.py`) — milestone: ui
-| # | Case | Expectation |
-|---|------|-------------|
-| W1 | `GET /` returns 200 and lists subjects | 200 |
-| W2 | `POST /subjects` then `GET /` shows it | present |
-| W3 | `GET /subjects/<id>` renders modules/chapters | 200 |
-| W4 | `POST /chapters/<id>/completion` updates value | redirect + persisted |
-| W5 | `GET /today` and `GET /week` return 200 | 200 |
+### 3.3 `test_activity.py` — study-activity logging (4)
+| Test | Checks |
+|------|--------|
+| `test_progress_logs_positive_delta` | 0→5 on a 120-min chapter logs `+60` minutes on the given date. |
+| `test_reducing_completion_logs_negative_delta` | Then 5→3 logs `-24` (36−60); both events present. |
+| `test_no_change_logs_nothing` | Setting the same completion value logs no event. |
+| `test_when_defaults_to_today` | With no `when`, the event is dated today. |
 
-### 2.6 Activity log (`test_activity.py`) — milestone: dashboard
-| # | Case | Expectation |
-|---|------|-------------|
-| A1 | Set completion 0→5 on 120-min chapter | logs +60 minutes on the given date |
-| A2 | Then 5→3 | logs −24 minutes (36−60) |
-| A3 | Set same value again | no event logged |
-| A4 | No `when` given | event dated today |
+### 3.4 `test_planning.py` — plans + backlog rollover (7)
+| Test | Checks |
+|------|--------|
+| `test_assigned_today_shows_in_plan` | A chapter planned today is in today's plan, not backlog. |
+| `test_yesterday_incomplete_is_backlog` | Incomplete + planned yesterday → today's backlog, keeps original date. |
+| `test_yesterday_complete_not_backlog` | Completed (10) + planned yesterday → not in backlog. |
+| `test_last_week_incomplete_is_weekly_backlog` | Incomplete + planned last week → weekly backlog. |
+| `test_this_week_shows_in_week_plan_not_backlog` | Planned earlier this week → in week plan, not weekly backlog. |
+| `test_finishing_backlog_removes_it` | Setting completion 10 removes it from both today & week backlog. |
+| `test_week_bounds_range` | `week_plan` returns Monday..Sunday for the week. |
 
-### 2.7 Dashboard aggregation (`test_dashboard.py`) — milestone: dashboard
-| # | Case | Expectation |
-|---|------|-------------|
-| B1 | Overall progress | sums all subjects' totals/completed |
-| B2 | Today stats | planned/done/backlog counts + studied minutes correct |
-| B3 | Today done count | finished planned chapter counted |
-| B4 | Week per-day studied | positive deltas bucketed to the right weekday |
-| B5 | Week per-day planned | assignment durations bucketed per day |
-| B6 | Week shape | 7 days Mon–Sun, correct start |
-| B7 | Empty dashboard | zeros, no errors |
+### 3.5 `test_backlog_display.py` — backlog carry-over shows the heading (6)
+| Test | Checks |
+|------|--------|
+| `test_past_week_incomplete_goes_to_weekly_backlog` | Service: title present in weekly backlog; original date kept. |
+| `test_past_day_incomplete_goes_to_today_backlog` | Service: title present in today's backlog. |
+| `test_completed_item_not_in_either_backlog` | Finished item excluded from both backlogs. |
+| `test_today_page_shows_backlog_heading` | Rendered `/today` contains the chapter heading + "carried from <date>". |
+| `test_week_page_shows_backlog_heading` | Rendered `/week` contains the heading under Weekly backlog + carried-from date. |
+| `test_finished_item_absent_from_today_page` | Rendered `/today` shows no "carried from" when the item is finished. |
 
-### 2.8 Auth (`test_auth.py`) — milestone: auth
-| # | Case | Expectation |
-|---|------|-------------|
-| C1 | Register | password stored hashed, role defaults to `user` |
-| C2 | Short password / duplicate username | raises ValueError |
-| C3 | Authenticate right/wrong/unknown | returns user / None / None |
-| C4 | Register via route | logs in, lands on dashboard |
-| C5 | Login → logout → protected page | redirects to `/login` |
-| C6 | Bad login | shows "Invalid username or password" |
-| C7 | Protected routes logged out | 302 → `/login` |
+### 3.6 `test_dashboard.py` — dashboard aggregation (7)
+| Test | Checks |
+|------|--------|
+| `test_overall_progress_sums_subjects` | Overall total/completed sum across subjects; subject count correct. |
+| `test_today_stats` | planned_count / done_count / backlog_count and studied_minutes all correct. |
+| `test_today_done_count` | A finished chapter planned today counts as done. |
+| `test_week_activity_per_day` | Positive deltas bucket into the right weekday; week total correct. |
+| `test_week_planned_per_day` | Assignment durations bucket into the right day; week planned total correct. |
+| `test_week_has_seven_days` | Week = 7 days Mon..Sun with the correct start date. |
+| `test_empty_dashboard` | Empty account → all zeros, no errors. |
 
-### 2.9 Multi-user isolation (`test_isolation.py`) — milestone: auth
-| # | Case | Expectation |
-|---|------|-------------|
-| I1 | Each user's list is their own | no cross-user leakage |
-| I2 | Fetch another user's subject by id | None (ownership enforced) |
-| I3 | Edit another user's chapter | None / raises (denied) |
-| I4 | Plan another user's chapter | raises ValueError |
-| I5 | Dashboard is scoped | other user's totals are zero |
-| I6 | Admin can see `/admin` | 200 |
-| I7 | Regular user hits `/admin` | 403 |
-| I8 | Admin link hidden for regular user | not in nav |
+### 3.7 `test_auth.py` — registration / login (7)
+| Test | Checks |
+|------|--------|
+| `test_register_hashes_password` | Password stored hashed (≠ plaintext); role defaults to `user`. |
+| `test_register_rejects_short_password` | Password < 6 chars raises `ValueError`. |
+| `test_register_rejects_duplicate_username` | Duplicate username raises. |
+| `test_authenticate_success_and_failure` | Correct → user; wrong password / unknown user → None. |
+| `test_register_logs_in_and_redirects` | Registering via route logs in and lands on the dashboard. |
+| `test_login_logout_cycle` | After logout a protected page redirects to `/login`; re-login works. |
+| `test_bad_login_shows_error` | Wrong credentials show "Invalid username or password". |
 
-### 2.10 JSON backup (`test_backup.py`) — milestone: backup
-| # | Case | Expectation |
-|---|------|-------------|
-| K1 | Export structure | format/version/user + nested subjects with plan_dates & activity |
-| K2 | Export is JSON-serialisable | round-trips through `json` |
-| K3 | Export → import into another user | counts correct; payload matches source |
-| K4 | Import preserves completion | no fabricated activity events |
-| K5 | Import is additive | existing subjects kept, new ones added |
-| K6 | Invalid envelope (format/version/type) | raises BackupError |
-| K7 | Invalid kind mid-import | raises + atomic rollback (nothing persisted) |
-| K8 | Bad date | raises BackupError |
-| K9 | `GET /export` | 200, JSON mimetype, attachment header, correct body |
-| K10 | `POST /import` with file | adds data, redirects |
-| K11 | `POST /import` bad JSON | shows "not valid JSON" |
+### 3.8 `test_isolation.py` — multi-user isolation + admin (8)
+| Test | Checks |
+|------|--------|
+| `test_list_is_scoped_per_user` | Each user lists only their own subjects. |
+| `test_cannot_get_other_users_subject` | Fetching another user's subject by id returns None. |
+| `test_cannot_edit_other_users_chapter` | Foreign chapter: `get` → None, `set_completion` raises. |
+| `test_cannot_plan_other_users_chapter` | Planning another user's chapter raises. |
+| `test_dashboard_is_scoped` | One user's dashboard shows zero of another user's data. |
+| `test_admin_can_see_overview` | Admin gets `/admin` → 200 with the overview. |
+| `test_regular_user_forbidden_from_admin` | Non-admin hitting `/admin` → 403. |
+| `test_admin_link_hidden_for_regular_user` | The Admin nav link is absent for a regular user. |
 
-## 3. Manual QA checklist (before a release)
+### 3.9 `test_routes.py` — route smoke + auth gating (8)
+| Test | Checks |
+|------|--------|
+| `test_dashboard_ok` | `GET /` → 200 when logged in. |
+| `test_subjects_page_ok` | `GET /subjects` → 200. |
+| `test_create_subject_appears` | `POST /subjects` then it shows on `/subjects`. |
+| `test_subject_detail_and_chapter_flow` | Add module + 90-min chapter; page shows `1.5h`; set completion 5 → `0.75h done`. |
+| `test_today_and_week_ok` | `/today` and `/week` → 200. |
+| `test_missing_subject_404` | `/subjects/999` (nonexistent/foreign) → 404. |
+| `test_protected_routes_redirect_when_logged_out` | `/`, `/subjects`, `/today`, `/week` → 302 to `/login` when logged out. |
+| `test_theme_toggle_present_on_every_page` | Base layout ships the toggle button + the no-flash theme script. |
 
-- [ ] Add a subject, module, and a 90-min video chapter; header shows `1.5h`.
-- [ ] Set completion to 5; module and subject bars move to reflect partial progress.
+### 3.10 `test_backup.py` — JSON export / import (14)
+| Test | Checks |
+|------|--------|
+| `test_export_structure` | Envelope (format/version/user) + nested subjects with `plan_dates` and `activity`. |
+| `test_export_is_json_serialisable` | Export round-trips through `json.dumps`/`loads`. |
+| `test_export_then_import_into_another_user` | Import counts correct; imported payload matches the source. |
+| `test_import_preserves_completion_without_extra_activity` | Completion restored verbatim; no fabricated activity events. |
+| `test_import_is_additive` | Existing subjects kept; imported ones added. |
+| `test_invalid_envelope_rejected` (×4 params) | Non-dict / wrong format / bad version / non-list subjects → `BackupError`. |
+| `test_invalid_kind_rejected_and_rolls_back` | Bad `kind` raises **and** nothing persists (atomic rollback). |
+| `test_bad_date_rejected` | Malformed plan date → `BackupError`. |
+| `test_export_route_returns_download` | `GET /export` → 200, `application/json`, attachment header, correct body. |
+| `test_import_route_adds_data` | `POST /import` with a file adds the data and redirects. |
+| `test_import_route_rejects_bad_json` | Uploading invalid JSON shows "not valid JSON". |
+
+## 4. Manual QA checklist (before a release)
+
+- [ ] Register an account; land on the dashboard.
+- [ ] Add a subject, module, and a 90-min video chapter; detail header shows `1.5h`.
+- [ ] Set completion to 5; module/subject bars + dashboard reflect partial progress.
 - [ ] Plan the chapter for today; it appears on `/today`.
-- [ ] Re-plan a chapter for yesterday (or wait a day); it appears as backlog on `/today`.
+- [ ] Plan a chapter for a past day/week; it appears as backlog with "carried from <date>".
 - [ ] Set completion to 10; it disappears from `/today` and `/week` backlog.
+- [ ] Toggle the theme (🌙/☀️); it persists across pages and charts recolor.
+- [ ] Export JSON; register a second account; import the file → data reappears.
+- [ ] Log in as an admin; `/admin` lists all users; a regular user gets 403.
 - [ ] Delete a subject; its modules/chapters vanish and totals update.
 
-## 4. How to run
+## 5. How to run
 
 ```bash
 cd subject-tracker
-pytest -q            # all tests
+pytest -q                          # all 77 tests
 pytest tests/test_planning.py -q   # one file
+pytest -k backlog -q               # by keyword
+pytest -v                          # show each test name
 ```
