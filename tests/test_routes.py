@@ -49,3 +49,11 @@ def test_protected_routes_redirect_when_logged_out(client):
         resp = client.get(path)
         assert resp.status_code == 302
         assert "/login" in resp.headers["Location"]
+
+
+def test_theme_toggle_present_on_every_page(client):
+    # The base layout ships the toggle button + the no-flash theme script.
+    page = client.get("/login").get_data(as_text=True)
+    assert 'id="themeToggle"' in page
+    assert "data-theme" in page              # early theme-setting script
+    assert "localStorage.getItem(\"theme\")" in page

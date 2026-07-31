@@ -117,6 +117,19 @@ Charts are rendered client-side with a **locally vendored Chart.js**
 Entrance animations (count-up numbers, reveal-on-scroll) live in `static/app.js`
 and respect `prefers-reduced-motion`.
 
+### 3.7 Theming (light / flashy dark)
+- All colors are CSS custom properties in `:root`; `:root[data-theme="dark"]`
+  overrides them with a neon/glow dark palette (`static/style.css`).
+- A nav toggle (🌙/☀️) flips `data-theme` on `<html>` and saves the choice to
+  `localStorage` (`static/app.js`). An inline script in `base.html` `<head>`
+  applies the saved/system theme **before paint** to avoid a flash.
+- Charts read their colors from the CSS variables and are re-drawn on toggle so
+  they always match the active theme.
+- Gotcha (documented so it isn't reintroduced): set the body background with
+  **separate** `background-color: var(--bg)` and `background-image: var(--bg-accent)`
+  — a `var(--color)` inside the `background` shorthand is parsed as an image
+  layer, leaving `background-color` transparent.
+
 ### 3.6 Authentication & multi-user isolation
 - **Accounts**: register/login/logout, session-based (Flask signed cookie holds
   `user_id`). `tracker/auth.py` loads `g.user` before each request and provides
