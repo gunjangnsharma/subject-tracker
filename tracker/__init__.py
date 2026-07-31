@@ -49,6 +49,7 @@ def create_app(config: type[Config] | Config = Config) -> Flask:
 
     from tracker.routes.admin import bp as admin_bp
     from tracker.routes.auth import bp as auth_bp
+    from tracker.routes.backup import bp as backup_bp
     from tracker.routes.dashboard import bp as dashboard_bp
     from tracker.routes.planning import bp as planning_bp
     from tracker.routes.subjects import bp as subjects_bp
@@ -58,5 +59,6 @@ def create_app(config: type[Config] | Config = Config) -> Flask:
     app.register_blueprint(subjects_bp)
     app.register_blueprint(planning_bp)
     app.register_blueprint(admin_bp)
+    app.register_blueprint(backup_bp)
 
     return app

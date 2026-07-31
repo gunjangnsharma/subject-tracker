@@ -148,6 +148,38 @@ and respect `prefers-reduced-motion`.
 > migration tool; delete `subject_tracker.db` (dev data is disposable) and let
 > `create_all` rebuild it, or add Alembic for real migrations.
 
+### 3.8 JSON backup (export / import)
+`BackupService` (`services/backup_service.py`) turns a user's data into a
+portable JSON document and reads it back. The **standard format** is versioned:
+
+```json
+{
+  "format": "subject-tracker-backup",
+  "version": 1,
+  "exported_at": "<ISO-8601 UTC>",
+  "user": {"username": "<name>"},
+  "subjects": [
+    {"name": "...", "modules": [
+      {"name": "...", "chapters": [
+        {"title": "...", "kind": "video|text", "duration_minutes": 120,
+         "completion": 10, "plan_dates": ["YYYY-MM-DD"],
+         "activity": [{"occurred_on": "YYYY-MM-DD", "minutes_delta": 120.0}]}
+      ]}
+    ]}
+  ]
+}
+```
+
+- **Export** (`GET /export`) scopes to the current user and streams the JSON as a
+  file download (`subject-tracker-<user>-<date>.json`).
+- **Import** (`POST /import`) is **additive** (adds the file's subjects to the
+  account; existing data is untouched) and **atomic** (any validation error
+  rolls the whole import back). It writes completion / plan dates / activity
+  **verbatim** via repositories, so it never fabricates new activity events.
+- Validation rejects a wrong `format`/`version`, bad kinds, non-integers, and
+  malformed dates with a clear message. `MAX_CONTENT_LENGTH` caps upload size.
+- For a clean *restore* (not merge), delete existing subjects first, then import.
+
 ## 5. Routes (UI + actions)
 
 | Method | Path | Purpose |
@@ -155,6 +187,8 @@ and respect `prefers-reduced-motion`.
 | GET/POST | `/register`, `/login` | Create account / sign in. |
 | POST | `/logout` | Sign out. |
 | GET  | `/admin` | **Admin only**: overview of all users' progress. |
+| GET  | `/export` | Download all of the current user's data as a JSON backup. |
+| POST | `/import` | Upload a JSON backup; adds its subjects to the current user. |
 | GET  | `/` | **Dashboard** (login required): overall + today + week activity, charts. |
 | GET  | `/subjects` | Manage subjects (list with progress bars). |
 | POST | `/subjects` | Add subject. |

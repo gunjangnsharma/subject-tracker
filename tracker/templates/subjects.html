@@ -10,6 +10,16 @@
   <button type="submit">Add subject</button>
 </form>
 
+<div class="backup-bar reveal">
+  <a class="btn-link-solid" href="{{ url_for('backup.export') }}">⬇ Export JSON</a>
+  <form class="import-form" method="post" action="{{ url_for('backup.import_backup') }}"
+        enctype="multipart/form-data">
+    <input type="file" name="backup" accept="application/json,.json" required>
+    <button type="submit">⬆ Import JSON</button>
+  </form>
+  <span class="muted">Export a backup of all your data, or import a backup to add it back.</span>
+</div>
+
 {% if subjects %}
   <ul class="card-list">
     {% for subject in subjects %}

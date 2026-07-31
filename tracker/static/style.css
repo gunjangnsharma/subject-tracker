@@ -426,3 +426,29 @@ section { margin: 1.5rem 0; }
 :root[data-theme="dark"] .card-title:hover,
 :root[data-theme="dark"] .topbar nav a:hover { text-shadow: var(--glow); }
 :root[data-theme="dark"] .role-tag { box-shadow: 0 0 12px color-mix(in srgb, var(--violet) 45%, transparent); }
+
+/* ---------- Backup (import / export) bar ---------- */
+.backup-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.25rem;
+}
+.btn-link-solid {
+  text-decoration: none;
+  background: var(--accent);
+  color: var(--on-accent);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 0.4rem 0.7rem;
+  font-weight: 600;
+  transition: box-shadow 0.15s ease, filter 0.15s ease;
+}
+.btn-link-solid:hover { filter: brightness(1.08); box-shadow: var(--glow); }
+.import-form { display: flex; align-items: center; gap: 0.5rem; }
+.import-form input[type=file] { max-width: 15rem; }

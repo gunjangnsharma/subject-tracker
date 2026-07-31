@@ -15,6 +15,9 @@ class Config:
     )
     SECRET_KEY = os.environ.get("SUBJECT_TRACKER_SECRET", "dev-secret-change-me")
 
+    # Cap uploaded backup files (defensive; a personal JSON backup is tiny).
+    MAX_CONTENT_LENGTH = 8 * 1024 * 1024  # 8 MB
+
 
 class TestConfig(Config):
     """Config for tests: fast, isolated, in-memory database."""

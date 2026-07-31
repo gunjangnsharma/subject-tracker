@@ -108,6 +108,21 @@ Last updated: 2026-08-01
 | I7 | Regular user hits `/admin` | 403 |
 | I8 | Admin link hidden for regular user | not in nav |
 
+### 2.10 JSON backup (`test_backup.py`) — milestone: backup
+| # | Case | Expectation |
+|---|------|-------------|
+| K1 | Export structure | format/version/user + nested subjects with plan_dates & activity |
+| K2 | Export is JSON-serialisable | round-trips through `json` |
+| K3 | Export → import into another user | counts correct; payload matches source |
+| K4 | Import preserves completion | no fabricated activity events |
+| K5 | Import is additive | existing subjects kept, new ones added |
+| K6 | Invalid envelope (format/version/type) | raises BackupError |
+| K7 | Invalid kind mid-import | raises + atomic rollback (nothing persisted) |
+| K8 | Bad date | raises BackupError |
+| K9 | `GET /export` | 200, JSON mimetype, attachment header, correct body |
+| K10 | `POST /import` with file | adds data, redirects |
+| K11 | `POST /import` bad JSON | shows "not valid JSON" |
+
 ## 3. Manual QA checklist (before a release)
 
 - [ ] Add a subject, module, and a 90-min video chapter; header shows `1.5h`.
