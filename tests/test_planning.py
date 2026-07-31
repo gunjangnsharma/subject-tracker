@@ -17,13 +17,13 @@ LAST_WEEK = TODAY - timedelta(days=8)
 
 
 @pytest.fixture
-def subjects(session):
-    return SubjectService(session)
+def subjects(session, user_id):
+    return SubjectService(session, user_id)
 
 
 @pytest.fixture
-def planning(session):
-    return PlanningService(session)
+def planning(session, user_id):
+    return PlanningService(session, user_id)
 
 
 def _make_chapter(subjects, duration=120, completion=0):

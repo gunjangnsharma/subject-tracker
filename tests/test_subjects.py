@@ -7,8 +7,8 @@ from tracker.services.subject_service import SubjectService
 
 
 @pytest.fixture
-def service(session):
-    return SubjectService(session)
+def service(session, user_id):
+    return SubjectService(session, user_id)
 
 
 def test_add_and_list_subject(service):  # S1

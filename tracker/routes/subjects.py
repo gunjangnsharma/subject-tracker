@@ -4,13 +4,20 @@ from __future__ import annotations
 
 from flask import Blueprint, abort, flash, g, redirect, render_template, request, url_for
 
+from tracker.auth import current_user
 from tracker.services.subject_service import SubjectService
 
 bp = Blueprint("subjects", __name__)
 
 
+@bp.before_request
+def _require_login():
+    if current_user() is None:
+        return redirect(url_for("auth.login"))
+
+
 def _service() -> SubjectService:
-    return SubjectService(g.session)
+    return SubjectService(g.session, current_user().id)
 
 
 @bp.get("/subjects")

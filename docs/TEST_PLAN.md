@@ -85,6 +85,29 @@ Last updated: 2026-08-01
 | B6 | Week shape | 7 days Mon–Sun, correct start |
 | B7 | Empty dashboard | zeros, no errors |
 
+### 2.8 Auth (`test_auth.py`) — milestone: auth
+| # | Case | Expectation |
+|---|------|-------------|
+| C1 | Register | password stored hashed, role defaults to `user` |
+| C2 | Short password / duplicate username | raises ValueError |
+| C3 | Authenticate right/wrong/unknown | returns user / None / None |
+| C4 | Register via route | logs in, lands on dashboard |
+| C5 | Login → logout → protected page | redirects to `/login` |
+| C6 | Bad login | shows "Invalid username or password" |
+| C7 | Protected routes logged out | 302 → `/login` |
+
+### 2.9 Multi-user isolation (`test_isolation.py`) — milestone: auth
+| # | Case | Expectation |
+|---|------|-------------|
+| I1 | Each user's list is their own | no cross-user leakage |
+| I2 | Fetch another user's subject by id | None (ownership enforced) |
+| I3 | Edit another user's chapter | None / raises (denied) |
+| I4 | Plan another user's chapter | raises ValueError |
+| I5 | Dashboard is scoped | other user's totals are zero |
+| I6 | Admin can see `/admin` | 200 |
+| I7 | Regular user hits `/admin` | 403 |
+| I8 | Admin link hidden for regular user | not in nav |
+
 ## 3. Manual QA checklist (before a release)
 
 - [ ] Add a subject, module, and a 90-min video chapter; header shows `1.5h`.

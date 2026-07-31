@@ -10,10 +10,24 @@
   <header class="topbar">
     <a class="brand" href="{{ url_for('dashboard.home') }}">📚 Subject Tracker</a>
     <nav>
-      <a href="{{ url_for('dashboard.home') }}">Dashboard</a>
-      <a href="{{ url_for('subjects.index') }}">Subjects</a>
-      <a href="{{ url_for('planning.today') }}">Today</a>
-      <a href="{{ url_for('planning.week') }}">This Week</a>
+      {% if current_user %}
+        <a href="{{ url_for('dashboard.home') }}">Dashboard</a>
+        <a href="{{ url_for('subjects.index') }}">Subjects</a>
+        <a href="{{ url_for('planning.today') }}">Today</a>
+        <a href="{{ url_for('planning.week') }}">This Week</a>
+        {% if current_user.is_admin %}
+          <a href="{{ url_for('admin.overview') }}">Admin</a>
+        {% endif %}
+        <span class="nav-user">
+          {{ current_user.username }}{% if current_user.is_admin %} <span class="role-tag">admin</span>{% endif %}
+        </span>
+        <form class="logout-form" method="post" action="{{ url_for('auth.logout') }}">
+          <button class="link-btn" type="submit">Log out</button>
+        </form>
+      {% else %}
+        <a href="{{ url_for('auth.login') }}">Log in</a>
+        <a href="{{ url_for('auth.register') }}">Sign up</a>
+      {% endif %}
     </nav>
   </header>
 

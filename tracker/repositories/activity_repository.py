@@ -1,4 +1,4 @@
-"""Data access for ProgressEvent (study activity log)."""
+"""Data access for ProgressEvent (study activity log), scoped to one user."""
 
 from __future__ import annotations
 
@@ -7,12 +7,22 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from tracker.models import ProgressEvent
+from tracker.models import Chapter, Module, ProgressEvent, Subject
 
 
 class ActivityRepository:
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, user_id: int) -> None:
         self._session = session
+        self._user_id = user_id
+
+    def _scoped(self):
+        return (
+            select(ProgressEvent)
+            .join(Chapter, ProgressEvent.chapter_id == Chapter.id)
+            .join(Module, Chapter.module_id == Module.id)
+            .join(Subject, Module.subject_id == Subject.id)
+            .where(Subject.user_id == self._user_id)
+        )
 
     def add(self, chapter_id: int, occurred_on: date, minutes_delta: float) -> ProgressEvent:
         event = ProgressEvent(
@@ -25,11 +35,11 @@ class ActivityRepository:
         return event
 
     def on_date(self, day: date) -> list[ProgressEvent]:
-        stmt = select(ProgressEvent).where(ProgressEvent.occurred_on == day)
+        stmt = self._scoped().where(ProgressEvent.occurred_on == day)
         return list(self._session.scalars(stmt))
 
     def between(self, start: date, end: date) -> list[ProgressEvent]:
-        stmt = select(ProgressEvent).where(
+        stmt = self._scoped().where(
             ProgressEvent.occurred_on >= start,
             ProgressEvent.occurred_on <= end,
         )

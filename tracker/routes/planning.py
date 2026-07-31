@@ -6,13 +6,20 @@ from datetime import date, datetime
 
 from flask import Blueprint, flash, g, redirect, render_template, request, url_for
 
+from tracker.auth import current_user
 from tracker.services.planning_service import PlanningService
 
 bp = Blueprint("planning", __name__)
 
 
+@bp.before_request
+def _require_login():
+    if current_user() is None:
+        return redirect(url_for("auth.login"))
+
+
 def _service() -> PlanningService:
-    return PlanningService(g.session)
+    return PlanningService(g.session, current_user().id)
 
 
 def _parse_date(raw: str | None, default: date) -> date:
@@ -39,7 +46,10 @@ def week():
 @bp.post("/chapters/<int:chapter_id>/plan")
 def assign(chapter_id: int):
     planned_date = _parse_date(request.form.get("planned_date"), date.today())
-    _service().assign(chapter_id, planned_date)
-    flash("Chapter added to plan.", "info")
+    try:
+        _service().assign(chapter_id, planned_date)
+        flash("Chapter added to plan.", "info")
+    except ValueError as exc:
+        flash(str(exc), "error")
     # Return to wherever the user came from, else today's plan.
     return redirect(request.referrer or url_for("planning.today"))

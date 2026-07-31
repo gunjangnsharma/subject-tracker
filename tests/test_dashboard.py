@@ -14,18 +14,18 @@ MONDAY = TODAY - timedelta(days=TODAY.weekday())
 
 
 @pytest.fixture
-def subjects(session):
-    return SubjectService(session)
+def subjects(session, user_id):
+    return SubjectService(session, user_id)
 
 
 @pytest.fixture
-def planning(session):
-    return PlanningService(session)
+def planning(session, user_id):
+    return PlanningService(session, user_id)
 
 
 @pytest.fixture
-def dashboard(session):
-    return DashboardService(session)
+def dashboard(session, user_id):
+    return DashboardService(session, user_id)
 
 
 def _chapter(subjects, subject_name="S", duration=120):

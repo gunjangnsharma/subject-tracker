@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from tracker import domain
 from tracker.models import Chapter, PlanAssignment
+from tracker.repositories.chapter_repository import ChapterRepository
 from tracker.repositories.plan_repository import PlanRepository
 
 
@@ -72,11 +73,16 @@ class WeekPlan:
 
 
 class PlanningService:
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, user_id: int) -> None:
         self._session = session
-        self._plans = PlanRepository(session)
+        self._user_id = user_id
+        self._plans = PlanRepository(session, user_id)
+        self._chapters = ChapterRepository(session, user_id)
 
     def assign(self, chapter_id: int, planned_date: date) -> PlanAssignment:
+        # Ownership guard: only the owner of the chapter may plan it.
+        if self._chapters.get(chapter_id) is None:
+            raise ValueError("Chapter not found.")
         assignment = self._plans.add(chapter_id, planned_date)
         self._session.commit()
         return assignment

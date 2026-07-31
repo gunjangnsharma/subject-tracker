@@ -11,8 +11,8 @@ DAY = date(2026, 8, 5)
 
 
 @pytest.fixture
-def service(session):
-    return SubjectService(session)
+def service(session, user_id):
+    return SubjectService(session, user_id)
 
 
 def _chapter(service, duration=120):
@@ -21,30 +21,30 @@ def _chapter(service, duration=120):
     return service.add_chapter(module.id, "Ch", "video", duration)
 
 
-def test_progress_logs_positive_delta(service, session):
+def test_progress_logs_positive_delta(service, session, user_id):
     ch = _chapter(service, duration=120)
     service.set_completion(ch.id, 5, when=DAY)  # 0 -> 60 min
-    events = ActivityRepository(session).on_date(DAY)
+    events = ActivityRepository(session, user_id).on_date(DAY)
     assert len(events) == 1
     assert events[0].minutes_delta == 60
 
 
-def test_reducing_completion_logs_negative_delta(service, session):
+def test_reducing_completion_logs_negative_delta(service, session, user_id):
     ch = _chapter(service, duration=120)
     service.set_completion(ch.id, 5, when=DAY)   # 0 -> 60 min  (+60)
     service.set_completion(ch.id, 3, when=DAY)   # 60 -> 36 min (-24)
-    deltas = sorted(e.minutes_delta for e in ActivityRepository(session).on_date(DAY))
+    deltas = sorted(e.minutes_delta for e in ActivityRepository(session, user_id).on_date(DAY))
     assert deltas == [-24, 60]
 
 
-def test_no_change_logs_nothing(service, session):
+def test_no_change_logs_nothing(service, session, user_id):
     ch = _chapter(service, duration=120)
     service.set_completion(ch.id, 5, when=DAY)
     service.set_completion(ch.id, 5, when=DAY)  # no delta
-    assert len(ActivityRepository(session).on_date(DAY)) == 1
+    assert len(ActivityRepository(session, user_id).on_date(DAY)) == 1
 
 
-def test_when_defaults_to_today(service, session):
+def test_when_defaults_to_today(service, session, user_id):
     ch = _chapter(service, duration=60)
     service.set_completion(ch.id, 10)  # no `when` -> today
-    assert len(ActivityRepository(session).on_date(date.today())) == 1
+    assert len(ActivityRepository(session, user_id).on_date(date.today())) == 1

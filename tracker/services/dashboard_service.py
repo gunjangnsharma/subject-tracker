@@ -72,11 +72,11 @@ class DashboardView:
 
 
 class DashboardService:
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, user_id: int) -> None:
         self._session = session
-        self._subjects = SubjectService(session)
-        self._planning = PlanningService(session)
-        self._activity = ActivityRepository(session)
+        self._subjects = SubjectService(session, user_id)
+        self._planning = PlanningService(session, user_id)
+        self._activity = ActivityRepository(session, user_id)
 
     def build(self, today: date) -> DashboardView:
         subjects = self._subjects.list_subjects()

@@ -16,12 +16,13 @@ from tracker.repositories.subject_repository import ModuleRepository, SubjectRep
 class SubjectService:
     """Coordinates subject/module/chapter CRUD and owns the commit boundary."""
 
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, user_id: int) -> None:
         self._session = session
-        self._subjects = SubjectRepository(session)
-        self._modules = ModuleRepository(session)
-        self._chapters = ChapterRepository(session)
-        self._activity = ActivityRepository(session)
+        self._user_id = user_id
+        self._subjects = SubjectRepository(session, user_id)
+        self._modules = ModuleRepository(session, user_id)
+        self._chapters = ChapterRepository(session, user_id)
+        self._activity = ActivityRepository(session, user_id)
 
     # --- Subjects ----------------------------------------------------------
     def add_subject(self, name: str) -> Subject:

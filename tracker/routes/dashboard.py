@@ -7,14 +7,16 @@ from datetime import date
 
 from flask import Blueprint, g, render_template
 
+from tracker.auth import current_user, login_required
 from tracker.services.dashboard_service import DashboardService
 
 bp = Blueprint("dashboard", __name__)
 
 
 @bp.get("/")
+@login_required
 def home():
-    view = DashboardService(g.session).build(date.today())
+    view = DashboardService(g.session, current_user().id).build(date.today())
 
     # Data payloads for the client-side charts (kept minimal & explicit).
     charts = {

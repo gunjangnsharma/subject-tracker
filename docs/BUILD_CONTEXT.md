@@ -28,7 +28,8 @@ Subject 1───* Module 1───* Chapter
 
 | Entity | Fields | Notes |
 |--------|--------|-------|
-| **Subject** | `id`, `name` | Top-level study area. |
+| **User** | `id`, `username` (unique), `password_hash`, `role` (`user`\|`admin`) | Account. Passwords hashed with Werkzeug PBKDF2. |
+| **Subject** | `id`, `user_id`, `name` | Top-level study area, **owned by a user**. |
 | **Module** | `id`, `subject_id`, `name` | A unit inside a subject. |
 | **Chapter** | `id`, `module_id`, `title`, `kind` (`video`\|`text`), `duration_minutes`, `completion` (0–10) | The atomic trackable item. |
 | **PlanAssignment** | `id`, `chapter_id`, `planned_date` (DATE) | "I plan to do this chapter on this day." Week is derived from the date. |
@@ -116,11 +117,32 @@ Charts are rendered client-side with a **locally vendored Chart.js**
 Entrance animations (count-up numbers, reveal-on-scroll) live in `static/app.js`
 and respect `prefers-reduced-motion`.
 
+### 3.6 Authentication & multi-user isolation
+- **Accounts**: register/login/logout, session-based (Flask signed cookie holds
+  `user_id`). `tracker/auth.py` loads `g.user` before each request and provides
+  `login_required` / `admin_required` guards. No third-party auth dependency.
+- **Data isolation** (the key security property): every Subject has a `user_id`.
+  All repositories are constructed with the current user's id and scope their
+  queries to it; `get(...)` enforces ownership (returns None for another user's
+  row) so no user can read or mutate data by guessing ids. Plans and activity
+  scope through Chapter → Module → Subject → user.
+- **Roles / different views**: a `user` sees only their own dashboard; an `admin`
+  additionally gets `/admin`, a read-only overview of every user's totals.
+- Services now take `(session, user_id)`: `SubjectService`, `PlanningService`,
+  `DashboardService`. `AuthService` handles register/authenticate.
+
+> ⚠️ **Schema note:** adding users changed the `subjects` table. There is no
+> migration tool; delete `subject_tracker.db` (dev data is disposable) and let
+> `create_all` rebuild it, or add Alembic for real migrations.
+
 ## 5. Routes (UI + actions)
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET  | `/` | **Dashboard**: overall progress + today + week activity, with charts. |
+| GET/POST | `/register`, `/login` | Create account / sign in. |
+| POST | `/logout` | Sign out. |
+| GET  | `/admin` | **Admin only**: overview of all users' progress. |
+| GET  | `/` | **Dashboard** (login required): overall + today + week activity, charts. |
 | GET  | `/subjects` | Manage subjects (list with progress bars). |
 | POST | `/subjects` | Add subject. |
 | POST | `/subjects/<id>/delete` | Delete subject (cascades modules/chapters). |
@@ -155,6 +177,8 @@ Each milestone is one commit so the build can be replayed step by step.
 3. **planning** — daily/weekly plans and backlog rollover.
 4. **ui** — templates and styling for a usable web UI.
 5. **tests** — pytest suite covering domain math, roll-ups, and backlog logic.
+6. **dashboard** — activity log + aggregated dashboard with charts/animations.
+7. **auth** — multi-user accounts, per-user data isolation, admin overview.
 
 ## 8. Decisions & assumptions log
 

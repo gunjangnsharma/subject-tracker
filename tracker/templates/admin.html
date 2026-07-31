@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}Admin &middot; Subject Tracker{% endblock %}
+
+{% block content %}
+<h1 class="reveal">Admin overview</h1>
+<p class="muted reveal">All users and their overall study progress (read-only).</p>
+
+<div class="panel reveal">
+  <table class="admin-table">
+    <thead>
+      <tr><th>User</th><th>Role</th><th>Subjects</th><th>Progress</th></tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+        <tr>
+          <td>{{ row.username }}</td>
+          <td>
+            {% if row.role == 'admin' %}<span class="role-tag">admin</span>{% else %}user{% endif %}
+          </td>
+          <td>{{ row.subject_count }}</td>
+          <td style="min-width: 240px;">{{ ui.progress_bar(row.progress) }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="4" class="muted">No users yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

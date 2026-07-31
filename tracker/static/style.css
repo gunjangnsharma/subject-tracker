@@ -244,6 +244,44 @@ section { margin: 1.5rem 0; }
   .reveal { opacity: 1; transform: none; transition: none; }
 }
 
+/* ---------- Auth / nav ---------- */
+.nav-user { margin-left: 1rem; color: var(--ink); font-weight: 600; font-size: 0.9rem; }
+.role-tag {
+  background: #ede9fe; color: #6d28d9;
+  border-radius: 999px; padding: 0.05rem 0.5rem;
+  font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.03em; font-weight: 700;
+}
+.logout-form { display: inline; margin-left: 1rem; }
+.link-btn {
+  background: none; border: none; color: var(--muted);
+  font-weight: 500; cursor: pointer; padding: 0;
+}
+.link-btn:hover { color: var(--accent); }
+
+.auth-wrap { display: flex; justify-content: center; margin-top: 3rem; }
+.auth-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 380px;
+  box-shadow: 0 12px 30px rgba(15,23,42,0.06);
+}
+.auth-card h1 { margin-bottom: 0.25rem; }
+.auth-form { display: flex; flex-direction: column; gap: 0.85rem; margin-top: 1.25rem; }
+.auth-form label { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.9rem; font-weight: 600; }
+.auth-form input { font-weight: 400; }
+.auth-form button { margin-top: 0.25rem; padding: 0.55rem; font-weight: 600; }
+.auth-alt { text-align: center; margin-top: 1rem; }
+
+.admin-table { width: 100%; border-collapse: collapse; }
+.admin-table th, .admin-table td {
+  text-align: left; padding: 0.6rem 0.5rem;
+  border-bottom: 1px solid var(--line); font-size: 0.9rem; vertical-align: middle;
+}
+.admin-table th { color: var(--muted); }
+
 /* Flash messages */
 .flashes { list-style: none; padding: 0; }
 .flash { padding: 0.5rem 0.75rem; border-radius: 6px; margin-bottom: 0.5rem; font-size: 0.9rem; }

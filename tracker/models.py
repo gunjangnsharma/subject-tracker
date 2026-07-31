@@ -16,14 +16,38 @@ from tracker import domain
 from tracker.database import Base
 
 CHAPTER_KINDS = ("video", "text")
+USER_ROLES = ("user", "admin")
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    username: Mapped[str] = mapped_column(String(80), unique=True, nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    role: Mapped[str] = mapped_column(Enum(*USER_ROLES, name="user_role"), default="user")
+
+    subjects: Mapped[list["Subject"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        order_by="Subject.name",
+    )
+
+    @property
+    def is_admin(self) -> bool:
+        return self.role == "admin"
 
 
 class Subject(Base):
     __tablename__ = "subjects"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
     name: Mapped[str] = mapped_column(String(200), nullable=False)
 
+    user: Mapped["User"] = relationship(back_populates="subjects")
     modules: Mapped[list["Module"]] = relationship(
         back_populates="subject",
         cascade="all, delete-orphan",

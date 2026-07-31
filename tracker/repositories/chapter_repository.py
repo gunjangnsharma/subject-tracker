@@ -1,4 +1,4 @@
-"""Data access for Chapter."""
+"""Data access for Chapter, scoped to one user via Module -> Subject."""
 
 from __future__ import annotations
 
@@ -8,8 +8,9 @@ from tracker.models import Chapter
 
 
 class ChapterRepository:
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, user_id: int) -> None:
         self._session = session
+        self._user_id = user_id
 
     def add(self, module_id: int, title: str, kind: str, duration_minutes: int) -> Chapter:
         chapter = Chapter(
@@ -24,7 +25,10 @@ class ChapterRepository:
         return chapter
 
     def get(self, chapter_id: int) -> Chapter | None:
-        return self._session.get(Chapter, chapter_id)
+        chapter = self._session.get(Chapter, chapter_id)
+        if chapter is None or chapter.module.subject.user_id != self._user_id:
+            return None
+        return chapter
 
     def set_completion(self, chapter: Chapter, completion: int) -> Chapter:
         # Domain clamping happens in the service; store what we are given.
