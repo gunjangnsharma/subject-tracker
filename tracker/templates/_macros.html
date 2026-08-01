@@ -14,20 +14,35 @@
   <span class="pill pill-{{ kind }}">{{ kind }}</span>
 {% endmacro %}
 
-{# Hours+minutes "completed" input for a chapter, with an inline error slot.
-   Client-side validation (app.js) enforces: minutes 0-59, and total <= duration.
-   `novalidate` suppresses the browser's native validation popups. #}
-{% macro completion_input(chapter) %}
+{# Read-only "completed" display for the subject/modules page. Editing happens
+   only on the plan pages once a chapter is planned. #}
+{% macro completion_display(chapter) %}
+  {% set p = chapter.progress %}
+  <span class="completed-readonly">
+    <strong>{{ p.completed_hm }}</strong>
+    <span class="muted">of {{ chapter.duration_minutes|hm }} ({{ p.percent }}%)</span>
+  </span>
+{% endmacro %}
+
+{# Editable completed-time control for the plan pages: a "Done" checkbox that
+   instantly completes the chapter, plus hours+minutes inputs that auto-save on
+   blur (via app.js, AJAX). No Save button. `novalidate` + inline .field-error
+   means no browser validation popups. A <noscript> Save button is the fallback. #}
+{% macro completion_control(chapter) %}
   <form class="completion-form" method="post" novalidate
         data-duration="{{ chapter.duration_minutes }}"
         action="{{ url_for('subjects.update_completion', chapter_id=chapter.id) }}">
+    <label class="done-check" title="Mark this chapter complete">
+      <input type="checkbox" class="done-toggle" {{ 'checked' if chapter.is_done else '' }}>
+      Done
+    </label>
     <span class="hm-field">
       <input type="number" name="completed_hours" min="0" inputmode="numeric"
              value="{{ chapter.completed_h }}" aria-label="completed hours"><span class="hm-unit">h</span>
       <input type="number" name="completed_minutes" min="0" max="59" inputmode="numeric"
              value="{{ chapter.completed_m }}" aria-label="completed minutes"><span class="hm-unit">m</span>
     </span>
-    <button type="submit">Save</button>
+    <noscript><button type="submit">Save</button></noscript>
     <span class="field-error" role="alert" hidden></span>
   </form>
 {% endmacro %}
@@ -46,8 +61,8 @@
           </div>
           <div class="plan-item-meta">
             {% if show_from %}<span class="carried">carried from {{ item.planned_date }}</span>{% endif %}
-            <span class="muted">{{ p.completed_hm }} / {{ p.total_hm }} ({{ p.percent }}%)</span>
-            {{ completion_input(item.chapter) }}
+            <span class="muted item-progress">{{ p.completed_hm }} / {{ p.total_hm }} ({{ p.percent }}%)</span>
+            {{ completion_control(item.chapter) }}
           </div>
         </li>
       {% endfor %}

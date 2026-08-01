@@ -504,3 +504,25 @@ input.input-invalid {
   border-color: var(--danger);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 28%, transparent);
 }
+
+/* ---------- Read-only completed cell (subject page) ---------- */
+.completed-readonly { font-size: 0.9rem; }
+.completed-readonly strong { color: var(--ink); }
+
+/* ---------- "Done" checkbox on plan pages ---------- */
+.done-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+.done-check input[type=checkbox] {
+  width: 1.05rem;
+  height: 1.05rem;
+  accent-color: var(--accent-2);
+  cursor: pointer;
+}

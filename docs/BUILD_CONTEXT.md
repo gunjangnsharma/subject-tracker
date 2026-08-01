@@ -97,15 +97,25 @@ relationships and with `ondelete="CASCADE"` on the FKs.
 
 ### 5.2 Completion — actual completed minutes
 - A chapter stores **`completed_minutes`** (int, `0..duration_minutes`) — the real
-  time done, entered via two inputs (hours + minutes) in the UI.
-- **Done** when `completed_minutes >= duration_minutes` (`domain.is_done`).
+  time done. **Done** when `completed_minutes >= duration_minutes` (`domain.is_done`).
 - Server **clamps** to `0..duration` (`domain.clamp_completed`) as a safety net.
-- **Validation** (client-side, inline, no popups — see §9): minutes must be `0–59`;
-  hours×60 + minutes must not exceed the chapter's duration. The form is
-  `novalidate` and `app.js` renders errors into a `.field-error` element and
-  blocks submit. `Chapter.completed_h` / `completed_m` split the value for the inputs.
-- *(History: earlier versions used a 0–10 completion proxy; that was replaced by
-  direct minutes. Backups migrate — see §10.)*
+- **Where you edit it:** only on the **plan pages** (`/today`, `/week`), and only
+  once a chapter is planned. The subject/modules page shows completion **read-only**
+  (`completion_display` macro). Editing lives in the `completion_control` macro
+  (plan pages only):
+  - A **"Done" checkbox** instantly completes the chapter (sets `completed = duration`);
+    unchecking clears it to 0.
+  - **Hours + minutes inputs** that **auto-save on blur** (no Save button) via AJAX —
+    the route returns JSON (on `X-Requested-With: XMLHttpRequest`) and `app.js`
+    updates the row in place (no reload). A `<noscript>` Save button is the fallback.
+  - **Inline validation, no popups** (see §9): minutes `0–59`; hours×60 + minutes ≤
+    duration. Form is `novalidate`; errors render into `.field-error`.
+- **Attribution:** completing a chapter logs the activity for **today** (the route's
+  `set_completed_minutes` defaults `when` to `date.today()`), so study time always
+  counts toward the day it was actually done — *not* the day it was planned for.
+- `Chapter.completed_h` / `completed_m` split the stored value for the two inputs.
+- *(History: earlier versions used a 0–10 completion proxy; replaced by direct
+  minutes. Backups migrate — see §10.)*
 
 ### 5.3 Roll-ups (aggregation) — always computed, never stored
 Derived live so they can't drift. Implemented as `domain.Progress` (a frozen

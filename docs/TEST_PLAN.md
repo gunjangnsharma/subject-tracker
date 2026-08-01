@@ -1,7 +1,7 @@
 # Subject Tracker — Test Plan
 
 Every test and what it verifies. Built alongside the app. Run from
-`subject-tracker/` with `pytest` (101 tests). Suite runs against a fresh in-memory
+`subject-tracker/` with `pytest` (105 tests). Suite runs against a fresh in-memory
 SQLite database per test, so tests are isolated, deterministic and never touch the
 dev DB.
 
@@ -84,12 +84,13 @@ Last updated: 2026-08-01
 | `test_week_page_shows_backlog_heading` | Rendered `/week` shows the heading under Overdue backlog + carried-from date. |
 | `test_finished_item_absent_from_today_page` | Rendered `/today` shows no "carried from" when the item is finished. |
 
-### 3.6 `test_dashboard.py` — dashboard aggregation (7)
+### 3.6 `test_dashboard.py` — dashboard aggregation (8)
 | Test | Checks |
 |------|--------|
 | `test_overall_progress_sums_subjects` | Overall total/completed sum across subjects; subject count correct. |
 | `test_today_stats` | planned_count / done_count / backlog_count and studied_minutes all correct. |
 | `test_today_done_count` | A finished chapter planned today counts as done. |
+| `test_completion_counts_toward_today_not_planned_day` | Completing a chapter planned for another day counts toward today's studied time. |
 | `test_week_activity_per_day` | Positive deltas bucket into the right weekday; week total correct. |
 | `test_week_planned_per_day` | Assignment durations bucket into the right day; week planned total correct. |
 | `test_week_has_seven_days` | Week = 7 days Mon..Sun with the correct start date. |
@@ -118,7 +119,7 @@ Last updated: 2026-08-01
 | `test_regular_user_forbidden_from_admin` | Non-admin hitting `/admin` → 403. |
 | `test_admin_link_hidden_for_regular_user` | The Admin nav link is absent for a regular user. |
 
-### 3.9 `test_routes.py` — route smoke + auth gating (8)
+### 3.9 `test_routes.py` — route smoke + auth gating (11)
 | Test | Checks |
 |------|--------|
 | `test_dashboard_ok` | `GET /` → 200 when logged in. |
@@ -128,6 +129,9 @@ Last updated: 2026-08-01
 | `test_today_and_week_ok` | `/today` and `/week` → 200. |
 | `test_missing_subject_404` | `/subjects/999` (nonexistent/foreign) → 404. |
 | `test_protected_routes_redirect_when_logged_out` | `/`, `/subjects`, `/today`, `/week` → 302 to `/login` when logged out. |
+| `test_subject_page_completed_is_readonly` | Subject page shows read-only completion (no inputs / Done checkbox). |
+| `test_plan_page_has_editable_completion` | A planned chapter's `/today` row has the h/m inputs + Done checkbox. |
+| `test_completion_ajax_returns_json` | AJAX completion POST returns JSON (completed_minutes/hm/is_done). |
 | `test_theme_toggle_present_on_every_page` | Base layout ships the toggle button + the no-flash theme script. |
 | `test_completion_update_returns_to_originating_page` | Saving completion from `/today` or `/week` redirects back there (via Referer), not to subject detail. |
 
@@ -179,9 +183,12 @@ Last updated: 2026-08-01
 
 - [ ] Register an account; land on the dashboard.
 - [ ] Add a subject, module, and a 90-min video chapter; detail header shows `1.5h`.
-- [ ] Enter completed time as hours+minutes; module/subject bars + dashboard reflect it.
-- [ ] Enter minutes > 59 → inline "Minutes must be 0–59" (no popup), Save blocked.
-- [ ] Enter a time exceeding the chapter length → inline "Can't exceed <duration>", Save blocked.
+- [ ] Subject page shows completion **read-only** (no inputs); use **Plan** to add it to a day.
+- [ ] On `/today` or `/week`: tick **Done** → instantly completes (100%); no reload.
+- [ ] Edit the h/m inputs and click away → **auto-saves on blur**; the row updates in place.
+- [ ] Enter minutes > 59 → inline "Minutes must be 0–59" (no popup); nothing saves.
+- [ ] Enter a time exceeding the chapter length → inline "Can't exceed <duration>"; nothing saves.
+- [ ] Complete a chapter planned for another day → it counts under **Studied today**.
 - [ ] Plan the chapter for today; it appears on `/today`.
 - [ ] Plan a chapter for a past day/week; it appears as backlog with "carried from <date>".
 - [ ] Open `/week`: 7 day sections from today, today highlighted, tasks under the right day, empty days say "Nothing planned".

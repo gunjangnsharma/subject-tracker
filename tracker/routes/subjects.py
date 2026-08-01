@@ -107,11 +107,26 @@ def update_completion(chapter_id: int):
     subject_id = chapter.module.subject_id
     # Completed time entered as hours + minutes. The client validates and shows
     # inline errors; the server clamps to 0..duration as a safety net so bad
-    # values can never persist even if the client is bypassed.
+    # values can never persist even if the client is bypassed. Activity is dated
+    # today (the default in the service), so completing a chapter always counts
+    # toward *today's* study time, regardless of the day it was planned for.
     hours = max(0, _int(request.form.get("completed_hours")))
     minutes = max(0, _int(request.form.get("completed_minutes")))
-    service.set_completed_minutes(chapter_id, hours * 60 + minutes)
-    # Return to the page the form was submitted from (subject detail, today or week).
+    chapter = service.set_completed_minutes(chapter_id, hours * 60 + minutes)
+
+    # AJAX (auto-save/checkbox) gets JSON back for an in-place update; a normal
+    # form submit (no-JS fallback) redirects to the page it came from.
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        p = chapter.progress
+        return {
+            "completed_minutes": chapter.completed_minutes,
+            "completed_h": chapter.completed_h,
+            "completed_m": chapter.completed_m,
+            "completed_hm": p.completed_hm,
+            "total_hm": p.total_hm,
+            "percent": p.percent,
+            "is_done": chapter.is_done,
+        }
     return redirect(
         request.referrer or url_for("subjects.subject_detail", subject_id=subject_id)
     )

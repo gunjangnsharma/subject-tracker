@@ -120,17 +120,20 @@
   }
   const hmTooltipPlugin = { callbacks: { label: hmTooltip } };
 
-  // --- Completed-time inputs: inline validation (no popups) ---------------
-  // Rules: minutes 0-59, and hours*60 + minutes must not exceed the chapter's
-  // total length. Errors render inline in a .field-error element; the form is
-  // `novalidate` so no native browser popups appear.
+  // --- Completed-time controls (plan pages) -------------------------------
+  // Inline validation (no popups): minutes 0-59, and hours*60 + minutes must not
+  // exceed the chapter length. Valid changes auto-save on blur via AJAX; the
+  // "Done" checkbox instantly completes (or clears) the chapter. The UI updates
+  // in place — no page reload. A <noscript> Save button is the no-JS fallback.
   function setupCompletionForms() {
     document.querySelectorAll(".completion-form").forEach(function (form) {
       const hEl = form.querySelector('input[name="completed_hours"]');
       const mEl = form.querySelector('input[name="completed_minutes"]');
       const err = form.querySelector(".field-error");
+      const checkbox = form.querySelector(".done-toggle");
       if (!hEl || !mEl || !err) return;
       const duration = parseInt(form.dataset.duration || "0", 10);
+      let lastTotal = clampInt(hEl.value) * 60 + clampInt(mEl.value);
 
       function setInvalid(el, on) {
         el.classList.toggle("input-invalid", on);
@@ -162,12 +165,70 @@
         return !message;
       }
 
+      function applyResult(data) {
+        lastTotal = data.completed_minutes;
+        hEl.value = data.completed_h;
+        mEl.value = data.completed_m;
+        if (checkbox) checkbox.checked = data.is_done;
+        const item = form.closest(".plan-item");
+        if (item) {
+          item.classList.toggle("done", data.is_done);
+          const label = item.querySelector(".item-progress");
+          if (label) {
+            label.textContent =
+              data.completed_hm + " / " + data.total_hm + " (" + data.percent + "%)";
+          }
+        }
+      }
+
+      function save() {
+        if (!validate()) return;
+        const body = new FormData();
+        body.append("completed_hours", hEl.value || "0");
+        body.append("completed_minutes", mEl.value || "0");
+        fetch(form.action, {
+          method: "POST",
+          headers: { "X-Requested-With": "XMLHttpRequest" },
+          body: body,
+        })
+          .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+          .then(applyResult)
+          .catch(function () {
+            /* network error — leave inputs as-is; user can retry */
+          });
+      }
+
+      function saveIfChanged() {
+        if (validate() && clampInt(hEl.value) * 60 + clampInt(mEl.value) !== lastTotal) {
+          save();
+        }
+      }
+
       hEl.addEventListener("input", validate);
       mEl.addEventListener("input", validate);
+      hEl.addEventListener("blur", saveIfChanged);
+      mEl.addEventListener("blur", saveIfChanged);
+
+      if (checkbox) {
+        checkbox.addEventListener("change", function () {
+          const target = checkbox.checked ? duration : 0;
+          hEl.value = Math.floor(target / 60);
+          mEl.value = target % 60;
+          save();
+        });
+      }
+
+      // No-JS fallback: the noscript button submits normally, so block only when
+      // scripted validation fails (the visible form has no Save button).
       form.addEventListener("submit", function (e) {
         if (!validate()) e.preventDefault();
       });
     });
+  }
+
+  function clampInt(value) {
+    const n = parseInt(value || "0", 10);
+    return isNaN(n) || n < 0 ? 0 : n;
   }
 
   // --- Dashboard charts (Chart.js) ----------------------------------------

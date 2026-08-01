@@ -36,10 +36,7 @@
             <td>{{ chapter.title }}</td>
             <td>{{ ui.kind_pill(chapter.kind) }}</td>
             <td>{{ chapter.duration_minutes|hm }}</td>
-            <td>
-              {{ ui.completion_input(chapter) }}
-              <span class="muted">{{ chapter.progress.completed_hm }} of {{ chapter.duration_minutes|hm }}</span>
-            </td>
+            <td>{{ ui.completion_display(chapter) }}</td>
             <td>
               <form class="plan-form" method="post"
                     action="{{ url_for('planning.assign', chapter_id=chapter.id) }}">

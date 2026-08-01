@@ -63,6 +63,19 @@ def test_today_stats(subjects, planning, dashboard):
     assert view.today.studied_minutes == 60
 
 
+def test_completion_counts_toward_today_not_planned_day(subjects, planning, dashboard):
+    # A chapter planned for a *past* day, but completed today, must count toward
+    # TODAY's study time — not the day it was planned for.
+    _, ch = _chapter(subjects, "A", 60)
+    planning.assign(ch.id, YESTERDAY)                       # planned yesterday
+    subjects.set_completed_minutes(ch.id, 60, when=TODAY)   # done today
+
+    view = dashboard.build(TODAY)
+    assert view.today.studied_minutes == 60                 # attributed to today
+    days = {d.label: d.studied_minutes for d in view.week.days}
+    assert days["Tue"] == 0                                 # not the planned (yesterday)
+
+
 def test_today_done_count(subjects, planning, dashboard):
     _, ch = _chapter(subjects, "A", 60)
     planning.assign(ch.id, TODAY)

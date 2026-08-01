@@ -75,6 +75,48 @@ def test_protected_routes_redirect_when_logged_out(client):
         assert "/login" in resp.headers["Location"]
 
 
+def _make_chapter(auth_client, duration="60"):
+    auth_client.post("/subjects", data={"name": "S"}, follow_redirects=True)
+    auth_client.post("/subjects/1/modules", data={"name": "M"}, follow_redirects=True)
+    auth_client.post(
+        "/modules/1/chapters",
+        data={"title": "C", "kind": "video", "duration_minutes": duration},
+        follow_redirects=True,
+    )
+
+
+def test_subject_page_completed_is_readonly(auth_client):
+    _make_chapter(auth_client)
+    page = auth_client.get("/subjects/1").get_data(as_text=True)
+    assert "completed-readonly" in page              # read-only display present
+    assert 'name="completed_hours"' not in page      # no editable completion input
+    assert "done-toggle" not in page                 # no Done checkbox here
+
+
+def test_plan_page_has_editable_completion(auth_client):
+    from datetime import date
+    _make_chapter(auth_client)
+    auth_client.post("/chapters/1/plan", data={"planned_date": date.today().isoformat()},
+                     follow_redirects=True)
+    page = auth_client.get("/today").get_data(as_text=True)
+    assert 'name="completed_hours"' in page          # editable on the plan page
+    assert "done-toggle" in page                     # Done checkbox present
+
+
+def test_completion_ajax_returns_json(auth_client):
+    _make_chapter(auth_client, duration="120")
+    resp = auth_client.post(
+        "/chapters/1/completion",
+        data={"completed_hours": "1", "completed_minutes": "30"},
+        headers={"X-Requested-With": "XMLHttpRequest"},
+    )
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["completed_minutes"] == 90
+    assert data["completed_hm"] == "1h 30m"
+    assert data["is_done"] is False
+
+
 def test_theme_toggle_present_on_every_page(client):
     # The base layout ships the toggle button + the no-flash theme script.
     page = client.get("/login").get_data(as_text=True)
