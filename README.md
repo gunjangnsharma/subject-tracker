@@ -3,7 +3,7 @@
 A Flask + SQLite web app to track study progress across subjects, modules and
 chapters — with per-user accounts, daily/weekly planning and automatic backlog
 rollover, an activity-tracking charts dashboard, a light/dark theme, and JSON
-backup/restore.
+backup/restore. Chapters can be reordered within their module with ▲/▼ buttons.
 
 - **Full design & rebuild guide:** [docs/BUILD_CONTEXT.md](docs/BUILD_CONTEXT.md)
 - **Test plan (every test explained):** [docs/TEST_PLAN.md](docs/TEST_PLAN.md)
@@ -24,6 +24,16 @@ DEBUG=1 python run.py    # with auto-reload/debugger (localhost only)
 
 Open `/register` to create an account. The SQLite file `subject_tracker.db` is
 created automatically on first run.
+
+Want data to look at straight away? Seed two dummy accounts instead:
+
+```bash
+python scripts/seed_dev_data.py     # --reset to replace an existing seed
+```
+
+- `student` / `student123` — 3 subjects, 21 chapters, 2 weeks of activity, a
+  populated plan and backlog.
+- `boss` / `boss12345` — admin, for viewing `/admin`.
 
 ## Run — reachable from other devices on your Wi-Fi (LAN)
 

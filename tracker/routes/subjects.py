@@ -132,6 +132,33 @@ def update_completion(chapter_id: int):
     )
 
 
+@bp.post("/chapters/<int:chapter_id>/move")
+def move_chapter(chapter_id: int):
+    """Move a chapter one step up or down within its module."""
+    service = _service()
+    chapter = service.get_chapter(chapter_id)
+    if chapter is None:
+        abort(404)
+    subject_id = chapter.module.subject_id
+
+    try:
+        moved = service.move_chapter(chapter_id, request.form.get("direction", ""))
+    except ValueError as exc:
+        # An unknown direction is a malformed request, not a user mistake.
+        abort(400, str(exc))
+
+    # AJAX gets the module's new order back so the page can re-sort in place;
+    # a plain form submit (no-JS fallback) redirects to the subject page.
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        siblings = service.list_module_chapters(chapter.module_id)
+        return {
+            "moved": moved,
+            "module_id": chapter.module_id,
+            "chapter_ids": [c.id for c in siblings],
+        }
+    return redirect(url_for("subjects.subject_detail", subject_id=subject_id))
+
+
 @bp.post("/chapters/<int:chapter_id>/delete")
 def delete_chapter(chapter_id: int):
     service = _service()

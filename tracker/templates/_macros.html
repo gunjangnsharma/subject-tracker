@@ -47,6 +47,27 @@
   </form>
 {% endmacro %}
 
+{# Up/down buttons that move a chapter one step within its module. Two plain
+   forms so this works without JS (POST -> redirect); app.js intercepts them and
+   swaps the rows in place. The first row's ▲ and the last row's ▼ are disabled,
+   matching the service, which treats an off-the-end move as a no-op. #}
+{% macro reorder_control(chapter, is_first, is_last) %}
+  <span class="reorder" data-chapter-id="{{ chapter.id }}">
+    <form method="post" action="{{ url_for('subjects.move_chapter', chapter_id=chapter.id) }}">
+      <input type="hidden" name="direction" value="up">
+      <button type="submit" class="reorder-btn" data-direction="up"
+              title="Move up" aria-label="Move {{ chapter.title }} up"
+              {{ 'disabled' if is_first else '' }}>&#9650;</button>
+    </form>
+    <form method="post" action="{{ url_for('subjects.move_chapter', chapter_id=chapter.id) }}">
+      <input type="hidden" name="direction" value="down">
+      <button type="submit" class="reorder-btn" data-direction="down"
+              title="Move down" aria-label="Move {{ chapter.title }} down"
+              {{ 'disabled' if is_last else '' }}>&#9660;</button>
+    </form>
+  </span>
+{% endmacro %}
+
 {# A list of PlannedItem. `show_from` labels the original planned date (backlog). #}
 {% macro plan_list(items, show_from=false) %}
   {% if items %}

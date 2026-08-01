@@ -16,7 +16,7 @@ import sys
 # Make the `tracker` package importable when run as a standalone script.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tracker.config import Config
+from tracker.config import resolve_settings
 from tracker.database import Database
 from tracker.maintenance import squash_duplicate_plans
 
@@ -24,7 +24,8 @@ from tracker.maintenance import squash_duplicate_plans
 def main() -> None:
     dry_run = "--dry-run" in sys.argv[1:]
 
-    db = Database(Config.DATABASE_URL)
+    # Same database the app would open (SUBJECT_TRACKER_DB, else ./subject_tracker.db).
+    db = Database(resolve_settings()["DATABASE_URL"])
     db.create_all()
     session = db.Session()
 

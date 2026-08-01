@@ -37,6 +37,7 @@
         "name": { "type": "string", "minLength": 1 },
         "chapters": {
           "type": "array",
+          "description": "Chapters in display order. The array order IS the chapter order within the module — there is no 'position' field. Import assigns positions by walking this array, so list chapters in the order you want them shown.",
           "items": { "$ref": "#/definitions/chapter" }
         }
       }

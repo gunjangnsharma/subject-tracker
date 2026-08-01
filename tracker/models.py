@@ -72,7 +72,10 @@ class Module(Base):
     chapters: Mapped[list["Chapter"]] = relationship(
         back_populates="module",
         cascade="all, delete-orphan",
-        order_by="Chapter.id",
+        # User-defined order (see Chapter.position). `id` is the tiebreak so rows
+        # that share a position — e.g. legacy data backfilled to 0 — keep a
+        # stable, insertion-ordered sequence instead of an arbitrary one.
+        order_by="Chapter.position, Chapter.id",
     )
 
     @property
@@ -92,6 +95,13 @@ class Chapter(Base):
     duration_minutes: Mapped[int] = mapped_column(Integer, default=0)
     # Minutes of the chapter completed so far (0..duration_minutes).
     completed_minutes: Mapped[int] = mapped_column(Integer, default=0)
+    # Display order **within its module** (0-based, ascending). Users reorder
+    # chapters with the up/down buttons on the subject page. Not globally
+    # unique — positions only mean anything relative to sibling chapters.
+    # Defaults to 0 so rows written before this column existed still load; the
+    # `Chapter.position, Chapter.id` ordering keeps those stable, and
+    # `maintenance.backfill_chapter_positions` assigns them real values.
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
 
     module: Mapped["Module"] = relationship(back_populates="chapters")
     assignments: Mapped[list["PlanAssignment"]] = relationship(

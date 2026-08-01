@@ -8,6 +8,7 @@ then the two docs it points to. Keep this file short; put detail in the docs.
 A Flask + SQLAlchemy + SQLite study-progress tracker: `Subject → Module → Chapter`
 with per-user accounts, a date-derived daily/weekly plan with backlog rollover, an
 activity-tracking charts dashboard, a light/dark theme, and JSON backup/restore.
+Chapters are reorderable within their module (▲/▼ buttons; `Chapter.position`).
 
 ## Read these (in order)
 
@@ -25,14 +26,20 @@ activity-tracking charts dashboard, a light/dark theme, and JSON backup/restore.
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 python run.py                 # dev: http://127.0.0.1:5000  (open /register first)
+python scripts/seed_dev_data.py   # dummy accounts + sample data (student / boss)
 HOST=0.0.0.0 python run.py    # LAN (also set SUBJECT_TRACKER_SECRET); see BUILD_CONTEXT §12
 SUBJECT_TRACKER_ENV=prod SUBJECT_TRACKER_SECRET=... python run.py   # prod (waitress)
 pytest                        # the full test suite
 ```
 
 Environments come from `SUBJECT_TRACKER_ENV` (`dev`/`prod`/`test`) via
-`config.get_config`. Prod runs on waitress, disables the debugger, and refuses the
-default secret. `wsgi.py` exposes the app for external WSGI servers.
+`config.get_config`. The two runtime versions are **dev and prod** (`test` is
+pytest-only — nothing serves it). Prod runs on waitress, disables the debugger, and
+refuses the default secret. `wsgi.py` exposes the app for external WSGI servers.
+Env-backed settings (`DATABASE_URL`, `SECRET_KEY`, `SESSION_COOKIE_SECURE`) are
+declared `FROM_ENV` and resolved by `config.resolve_settings` inside `create_app` —
+never read `os.environ` in a class body (it freezes the value at import; see
+BUILD_CONTEXT §11).
 
 ## Architecture rules (do not break)
 
@@ -58,8 +65,12 @@ default secret. `wsgi.py` exposes the app for external WSGI servers.
   tests via the Flask test client. Document each new test's purpose in TEST_PLAN.md.
 - **Update the docs in the same change.** New rule/route/decision → BUILD_CONTEXT.md;
   new test → TEST_PLAN.md; new run/setup step → README.md. Docs must not drift.
-- **Schema changes:** there are no migrations — dev data is disposable. Delete
-  `subject_tracker.db` and let `create_all` rebuild it (note it in the change).
+- **Schema changes:** there are no migrations, but `tracker/schema.py`
+  (`ensure_columns`, run from `create_all`) adds **missing defaulted columns** to
+  existing tables, so a new nullable/defaulted column needs no reset — add it to
+  the model *and* to `_ADDED_COLUMNS`. Anything else (drops, type changes, new
+  constraints) still means deleting `subject_tracker.db` and letting `create_all`
+  rebuild it (note it in the change).
 - Git commit message trailer: `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`.
 
 ## Gotchas (already learned — don't reintroduce)
@@ -82,3 +93,8 @@ default secret. `wsgi.py` exposes the app for external WSGI servers.
   `completion_control` macro (Done checkbox + h/m inputs that AJAX-save on blur).
   The subject page is read-only (`completion_display`). Completing always dates the
   activity to `today`, never the planned day.
+- **Chapter order sorts by `(position, id)`, never `position` alone.** Rows written
+  before the column existed all share position `0`; the `id` tiebreak keeps them in
+  insertion order. A move **renumbers the whole module** rather than swapping two
+  values — swapping two zeroes would be a silent no-op. Reordering is confined to
+  one module: the swap partner is always a sibling.

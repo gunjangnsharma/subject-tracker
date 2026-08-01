@@ -21,7 +21,7 @@ tool or agent to generate a valid file. Import is at `POST /import`; export at
       "modules": [                              // optional (default [])
         {
           "name": "Linear Algebra",             // REQUIRED, non-empty string
-          "chapters": [                         // optional (default [])
+          "chapters": [                         // optional (default []); ORDER MATTERS
             {
               "title": "Vectors",               // REQUIRED, non-empty string
               "kind": "video",                  // "video" | "text" (default "video")
@@ -52,7 +52,7 @@ tool or agent to generate a valid file. Import is at `POST /import`; export at
 | `subject.name` | string | yes | non-empty (trimmed) |
 | `subject.modules` | array | no | default `[]` |
 | `module.name` | string | yes | non-empty |
-| `module.chapters` | array | no | default `[]` |
+| `module.chapters` | array | no | default `[]`. **Array order = display order** (see §3) |
 | `chapter.title` | string | yes | non-empty |
 | `chapter.kind` | string | no | `"video"` or `"text"`; default `"video"` |
 | `chapter.duration_minutes` | integer | yes | `>= 0`. **Minutes, not "Xh Ym"** (130 = 2h 10m) |
@@ -66,6 +66,12 @@ tool or agent to generate a valid file. Import is at `POST /import`; export at
 
 - **Whole minutes everywhere** — never `"1h 30m"`. `duration_minutes` /
   `completed_minutes` are integers; `minutes_delta` is a number.
+- **Chapter order travels as array order.** There is **no `position` field** —
+  the order of each module's `chapters` array *is* the order the user sees, and
+  import assigns positions by walking the array. So list chapters in the order
+  you want them displayed; a re-export reproduces it exactly. (A `position` key
+  in your file is simply ignored.) Users can then reorder chapters in the UI with
+  the ▲/▼ buttons on the subject page.
 - **Additive** — creates *new* subjects; does not merge into existing ones.
   Re-importing the same file duplicates its subjects.
 - **Atomic** — any invalid field aborts the whole import; nothing is written.
@@ -95,7 +101,9 @@ tool or agent to generate a valid file. Import is at `POST /import`; export at
 > "completed_minutes": <int minutes, 0..duration>, "plan_dates": ["YYYY-MM-DD"] (0 or 1),
 > "activity": [ { "occurred_on": "YYYY-MM-DD", "minutes_delta": <number> } ] }`.
 > Rules: all times are whole minutes (2h 10m = 130), never "Xh Ym"; `completed_minutes`
-> ≤ `duration_minutes`; at most one `plan_dates` entry; `activity.minutes_delta` should
+> ≤ `duration_minutes`; at most one `plan_dates` entry; list each module's chapters in
+> the order they should appear (array order is the display order — there is no
+> `position` field); `activity.minutes_delta` should
 > sum to that chapter's `completed_minutes` across the study dates. Output ONLY valid
 > JSON, no comments.
 

@@ -61,6 +61,33 @@ def week_bounds(day: date) -> tuple[date, date]:
     return monday, sunday
 
 
+# Directions accepted by ``swap_index``/the reorder UI.
+MOVE_UP = "up"
+MOVE_DOWN = "down"
+MOVE_DIRECTIONS = (MOVE_UP, MOVE_DOWN)
+
+
+def swap_index(index: int, direction: str, count: int) -> int | None:
+    """Index to swap ``index`` with when moving it one step, or None if it can't.
+
+    Pure position arithmetic for reordering a list of ``count`` siblings.
+    Returns None when the move would fall off either end — the first item can't
+    move up and the last can't move down — so callers treat "no room" as a
+    no-op rather than an error.
+
+    >>> swap_index(2, MOVE_UP, 5)
+    1
+    >>> swap_index(0, MOVE_UP, 5) is None
+    True
+    """
+    if direction not in MOVE_DIRECTIONS:
+        raise ValueError(f"direction must be one of {MOVE_DIRECTIONS}.")
+    if not 0 <= index < count:
+        return None
+    target = index - 1 if direction == MOVE_UP else index + 1
+    return target if 0 <= target < count else None
+
+
 @dataclass(frozen=True)
 class Progress:
     """A computed roll-up of time at any level (chapter/module/subject)."""

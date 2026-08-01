@@ -226,6 +226,73 @@
     });
   }
 
+  // Reorder chapters within a module. The ▲/▼ buttons are plain forms, so this
+  // works without JS (POST -> redirect); here we intercept them, reorder the rows
+  // in place from the ids the server returns, and re-disable the end buttons.
+  function setupReorderControls() {
+    document.querySelectorAll("table.chapters").forEach(function (table) {
+      const body = table.tBodies[0];
+      if (!body) return;
+
+      table.querySelectorAll(".reorder").forEach(function (control) {
+        const chapterId = control.getAttribute("data-chapter-id");
+        control.querySelectorAll("form").forEach(function (form) {
+          form.addEventListener("submit", function (event) {
+            event.preventDefault();
+            const button = form.querySelector("button");
+            if (button && button.disabled) return;
+
+            fetch(form.action, {
+              method: "POST",
+              headers: { "X-Requested-With": "XMLHttpRequest" },
+              body: new FormData(form),
+            })
+              .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+              .then(function (data) {
+                if (data.moved) applyOrder(body, data.chapter_ids, chapterId);
+              })
+              .catch(function () {
+                // Network/server error — fall back to a normal submit so the
+                // user still gets the move (and any flash message).
+                form.submit();
+              });
+          });
+        });
+      });
+    });
+  }
+
+  // Re-append rows to match `ids`, then refresh which end buttons are disabled
+  // and briefly highlight the row that moved.
+  function applyOrder(body, ids, movedId) {
+    const rows = [];
+    ids.forEach(function (id) {
+      const row = body.querySelector('[data-chapter-row="' + id + '"]');
+      if (row) {
+        body.appendChild(row);   // appending in order re-sorts the table
+        rows.push(row);
+      }
+    });
+
+    rows.forEach(function (row, index) {
+      const up = row.querySelector('.reorder button[data-direction="up"]');
+      const down = row.querySelector('.reorder button[data-direction="down"]');
+      if (up) up.disabled = index === 0;
+      if (down) down.disabled = index === rows.length - 1;
+    });
+
+    const moved = body.querySelector('[data-chapter-row="' + movedId + '"]');
+    if (moved) {
+      moved.classList.remove("just-moved");
+      // Force a reflow so re-adding the class restarts the animation.
+      void moved.offsetWidth;
+      moved.classList.add("just-moved");
+      // Keep focus on the button the user pressed, which now sits in a new row.
+      const still = moved.querySelector(".reorder button:not([disabled])");
+      if (still) still.focus();
+    }
+  }
+
   function clampInt(value) {
     const n = parseInt(value || "0", 10);
     return isNaN(n) || n < 0 ? 0 : n;
@@ -362,6 +429,7 @@
     setupDatePickers();
     setupCompletionForms();
     setupPlanForms();
+    setupReorderControls();
     const toggle = document.getElementById("themeToggle");
     if (toggle) toggle.addEventListener("click", toggleTheme);
   });

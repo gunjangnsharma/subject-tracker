@@ -24,6 +24,12 @@ user's account (existing data is left untouched). It is atomic — any validatio
 error rolls the whole import back. Completion, plan dates and activity history
 are restored verbatim (import writes rows directly, so it does not generate new
 activity events).
+
+**Chapter order** travels as the order of the ``chapters`` array — there is no
+``position`` field. Export lists each module's chapters in display order, and
+import assigns positions sequentially as it walks the array, so a re-export
+reproduces the original order exactly. This keeps hand-authored files simple
+(list chapters in the order you want them) and needs no format-version bump.
 """
 
 from __future__ import annotations
@@ -89,6 +95,8 @@ class BackupService:
 
     def _export_module(self, module) -> dict:
         return {
+            # `module.chapters` is ordered by (position, id), so the array order
+            # *is* the chapter order; import replays it. See the module docstring.
             "name": module.name,
             "chapters": [self._export_chapter(c) for c in module.chapters],
         }

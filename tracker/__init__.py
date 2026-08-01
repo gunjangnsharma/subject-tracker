@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from flask import Flask, g
 
-from tracker.config import DEFAULT_SECRET, Config, get_config
+from tracker.config import DEFAULT_SECRET, Config, get_config, resolve_settings
 from tracker.database import Database
 from tracker.domain import format_hm
 
@@ -20,6 +20,10 @@ def create_app(config: type[Config] | Config | None = None) -> Flask:
 
     app = Flask(__name__)
     app.config.from_object(config)
+    # Fill in the settings the config leaves to the environment (DB URL, secret,
+    # cookie-Secure flag). Done here, not at import time, so the values reflect
+    # the environment this process actually starts with.
+    app.config.update(resolve_settings(config))
 
     # Production must never run with the shipped dev secret.
     if app.config.get("ENV") == "prod" and app.config["SECRET_KEY"] == DEFAULT_SECRET:

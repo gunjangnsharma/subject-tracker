@@ -29,8 +29,17 @@ class Database:
     def create_all(self) -> None:
         # Import models so they are registered on Base before create_all.
         from tracker import models  # noqa: F401
+        from tracker.schema import ensure_columns
 
         Base.metadata.create_all(self.engine)
+        # create_all only creates *missing tables*; it never alters an existing
+        # one. Reconcile columns added after a table was first created, so a
+        # database written by an older version stays queryable. See schema.py.
+        return ensure_columns(self.engine)
+
+    def remove(self) -> None:
+        """Dispose of the current scoped session (call on teardown)."""
+        self.Session.remove()
 
     def remove(self) -> None:
         """Dispose of the current scoped session (call on teardown)."""

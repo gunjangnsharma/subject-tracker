@@ -23,17 +23,21 @@
     </div>
     {{ ui.progress_bar(module.progress) }}
 
-    <table class="chapters">
+    <table class="chapters" data-module-id="{{ module.id }}">
       <thead>
         <tr>
+          <th class="col-order"><span class="sr-only">Reorder</span></th>
           <th>Chapter</th><th>Type</th><th>Length</th>
           <th>Completed</th><th>Plan</th><th></th>
         </tr>
       </thead>
       <tbody>
         {% for chapter in module.chapters %}
-          <tr class="{{ 'done' if chapter.is_done else '' }}">
-            <td>{{ chapter.title }}</td>
+          <tr class="{{ 'done' if chapter.is_done else '' }}" data-chapter-row="{{ chapter.id }}">
+            <td class="col-order">
+              {{ ui.reorder_control(chapter, loop.first, loop.last) }}
+            </td>
+            <td class="col-title">{{ chapter.title }}</td>
             <td>{{ ui.kind_pill(chapter.kind) }}</td>
             <td>{{ chapter.duration_minutes|hm }}</td>
             <td>{{ ui.completion_display(chapter) }}</td>
@@ -52,7 +56,7 @@
             </td>
           </tr>
         {% else %}
-          <tr><td colspan="6" class="muted">No chapters yet.</td></tr>
+          <tr><td colspan="7" class="muted">No chapters yet.</td></tr>
         {% endfor %}
       </tbody>
     </table>

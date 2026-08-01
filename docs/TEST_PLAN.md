@@ -1,11 +1,11 @@
 # Subject Tracker — Test Plan
 
 Every test and what it verifies. Built alongside the app. Run from
-`subject-tracker/` with `pytest` (119 tests). Suite runs against a fresh in-memory
+`subject-tracker/` with `pytest` (165 tests). Suite runs against a fresh in-memory
 SQLite database per test, so tests are isolated, deterministic and never touch the
 dev DB.
 
-Last updated: 2026-08-01
+Last updated: 2026-08-02
 
 ---
 
@@ -26,6 +26,9 @@ Last updated: 2026-08-01
 | `user_id` | A registered non-admin user `tester`; returns its id for scoping services. |
 | `client` | Flask test client (not logged in). |
 | `auth_client` | Flask test client with `tester` registered **and logged in**. |
+
+`tests/test_chapter_order.py` adds a local `module_with_chapters` fixture: a
+subject + module holding four chapters (`First`..`Fourth`) in a known order.
 
 ## 3. Test inventory — each test and what it checks
 
@@ -185,7 +188,7 @@ Last updated: 2026-08-01
 | `test_squash_is_idempotent` | Running again removes nothing. |
 | `test_squash_handles_multiple_chapters` | Squashes several chapters at once; counts correct; singletons untouched. |
 
-### 3.13 `test_config.py` — dev / prod / test environments (8)
+### 3.13 `test_config.py` — dev / prod / test environments (21)
 | Test | Checks |
 |------|--------|
 | `test_get_config_resolves_names` | `get_config` maps dev/prod/test → the right class; unknown → dev. |
@@ -195,13 +198,84 @@ Last updated: 2026-08-01
 | `test_prod_refuses_default_secret` | `create_app` raises in prod with the default `SECRET_KEY`. |
 | `test_prod_with_real_secret_starts` | Prod app boots with a real secret (ENV=prod, DEBUG off). |
 | `test_session_cookie_hardening` | Session cookies are HttpOnly + SameSite=Lax. |
-| `test_default_create_app_is_dev` | `create_app()` with no env resolves to dev. |
+| `test_default_create_app_is_dev` | No env → dev; **and** `SUBJECT_TRACKER_DB` set *after* `tracker.config` was imported is still honoured (settings resolve at `create_app` time). Runs in `tmp_path` so it can never write into the repo. |
+| `test_env_settings_reads_an_injected_mapping` | `EnvSettings` reads env/DB/secret/HTTPS from an injected dict (no `os.environ`); env name is case-insensitive. |
+| `test_env_settings_defaults_when_unset` | Empty environment → dev, `DEFAULT_SECRET`, HTTPS off, cwd-relative `subject_tracker.db`. |
+| `test_https_flag_parsing` (×9 params) | `1/true/TRUE/yes/on` → True; `0/false/""/nonsense` → False. |
+| `test_explicit_config_value_beats_the_environment` | Precedence: `TestConfig`'s explicit `DATABASE_URL` wins over the env var, while its `FROM_ENV` `SECRET_KEY` comes from the environment. |
+| `test_resolve_settings_falls_back_to_env_config` | `resolve_settings()` with no config uses the class named by `SUBJECT_TRACKER_ENV`. |
+
+### 3.14 `test_chapter_order.py` — reordering chapters within a module (33)
+
+Covers the whole feature stack: pure index math, the service rule, legacy
+databases that predate the `position` column, isolation, the route, and backup
+round-tripping.
+
+**Pure domain math (4)**
+| Test | Checks |
+|------|--------|
+| `test_swap_index_moves_one_step` | `swap_index(2, up, 5) → 1`; `down → 3`. |
+| `test_swap_index_returns_none_at_the_ends` | First can't go up, last can't go down, single item can't move — `None`, not an error. |
+| `test_swap_index_rejects_bad_direction` | An unknown direction raises `ValueError`. |
+| `test_swap_index_out_of_range_is_none` | Index outside `0..count-1` → `None`. |
+
+**Service (10)**
+| Test | Checks |
+|------|--------|
+| `test_new_chapters_get_sequential_positions` | Four added chapters get positions `0..3` in insertion order. |
+| `test_move_down_swaps_with_next` | Moving the first chapter down swaps it with the second. |
+| `test_move_up_swaps_with_previous` | Moving the third up swaps it with the second. |
+| `test_move_up_at_top_is_a_noop` | ▲ on the first row returns `False`, order unchanged. |
+| `test_move_down_at_bottom_is_a_noop` | ▼ on the last row returns `False`, order unchanged. |
+| `test_move_is_reversible` | Down then up restores the original order. |
+| `test_positions_stay_contiguous_after_moves` | After two moves positions are still `0..3` — no gaps or duplicates. |
+| `test_move_rejects_bad_direction` | `"sideways"` raises `ValueError`. |
+| `test_move_unknown_chapter_raises` | An unknown chapter id raises `ValueError`. |
+| `test_reorder_is_confined_to_one_module` | Pushing a chapter past the end of its module never moves it into a sibling module; both modules keep their own chapters. |
+| `test_deleting_a_chapter_leaves_the_rest_ordered` | Deleting mid-list keeps order; a later move renumbers over the gap. |
+| `test_new_chapter_lands_at_the_end_after_reordering` | A chapter added after reordering appends last. |
+
+**Isolation (1)**
+| Test | Checks |
+|------|--------|
+| `test_cannot_reorder_another_users_chapter` | Another user's `move_chapter` raises and leaves the owner's order untouched. |
+
+**Legacy databases (5)**
+| Test | Checks |
+|------|--------|
+| `test_ensure_columns_adds_position_to_an_old_database` | A hand-built pre-feature `chapters` table (no `position`) gains the column via `create_all`; the existing row survives, defaults to 0 and is queryable. |
+| `test_ensure_columns_is_idempotent` | Nothing to add on a fresh DB, and still nothing on a second run. |
+| `test_legacy_rows_all_at_zero_keep_insertion_order` | Rows sharing position 0 stay in id order (the `(position, id)` sort). |
+| `test_backfill_renumbers_legacy_positions` | `backfill_chapter_positions` turns all-zero positions into `0..n-1` without changing the order. |
+| `test_backfill_is_idempotent` | A module already numbered `0..n-1` reports 0 modules affected. |
+| `test_move_works_on_legacy_all_zero_positions` | The first move on all-zero data actually moves (renumbering repairs the duplicates). |
+
+**Route (7)**
+| Test | Checks |
+|------|--------|
+| `test_move_route_reorders_and_redirects` | Plain POST (no-JS) → 302 and the rows swap on the reloaded page. |
+| `test_move_route_ajax_returns_new_order` | AJAX POST → 200 with `{moved: true, module_id, chapter_ids}` in the new order. |
+| `test_move_route_reports_noop_without_changing_anything` | ▲ on the first row → `moved: false`, ids unchanged. |
+| `test_move_route_rejects_bad_direction` | An unknown direction → 400. |
+| `test_move_route_404s_for_unknown_chapter` | Unknown/foreign chapter id → 404. |
+| `test_move_route_requires_login` | Logged out → 302 to `/login`. |
+| `test_subject_page_renders_reorder_buttons` | The page ships `.reorder` controls with both directions; the first row's ▲ and last row's ▼ are `disabled`. |
+
+**Backup round-trip (3)**
+| Test | Checks |
+|------|--------|
+| `test_export_lists_chapters_in_display_order` | Export reflects the reordered sequence, not id order. |
+| `test_import_preserves_chapter_order` | Import into another account reproduces the order and assigns positions `0..3`. |
+| `test_reexport_after_import_is_identical` | Export → import → re-export gives an identical `subjects` payload. |
 
 ## 4. Manual QA checklist (before a release)
 
 - [ ] Register an account; land on the dashboard.
 - [ ] Add a subject, module, and a 90-min video chapter; detail header shows `1.5h`.
 - [ ] Subject page shows completion **read-only** (no inputs); use **Plan** to add it to a day.
+- [ ] On the subject page, press ▲/▼ on a chapter → it swaps with its neighbour and the
+      order survives a reload. The first row's ▲ and last row's ▼ are greyed out.
+- [ ] Reordering a chapter never moves it into a different module.
 - [ ] On `/today` or `/week`: tick **Done** → instantly completes (100%); no reload.
 - [ ] Edit the h/m inputs and click away → **auto-saves on blur**; the row updates in place.
 - [ ] Enter minutes > 59 → inline "Minutes must be 0–59" (no popup); nothing saves.

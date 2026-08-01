@@ -85,6 +85,10 @@ class SubjectService:
     def get_chapter(self, chapter_id: int) -> Chapter | None:
         return self._chapters.get(chapter_id)
 
+    def list_module_chapters(self, module_id: int) -> list[Chapter]:
+        """A module's chapters in display order (position, then id)."""
+        return self._chapters.siblings(module_id)
+
     def set_completed_minutes(
         self, chapter_id: int, completed_minutes: int, when: date | None = None
     ) -> Chapter:
@@ -108,3 +112,39 @@ class SubjectService:
             return
         self._chapters.delete(chapter)
         self._session.commit()
+
+    def move_chapter(self, chapter_id: int, direction: str) -> bool:
+        """Swap a chapter with its neighbour inside its own module.
+
+        ``direction`` is ``"up"`` or ``"down"`` (``domain.MOVE_UP`` /
+        ``MOVE_DOWN``). Reordering is confined to one module: the swap partner is
+        always a sibling chapter, so a move can never relocate a chapter to a
+        different module or subject.
+
+        Returns True when positions changed, and False when the chapter is
+        already at that end of its module — pressing "up" on the first row is a
+        harmless no-op, not an error.
+
+        Raises ValueError for an unknown chapter (including another user's, which
+        the repository reports as missing) or an invalid direction.
+        """
+        chapter = self._chapters.get(chapter_id)
+        if chapter is None:
+            raise ValueError("Chapter not found.")
+
+        siblings = self._chapters.siblings(chapter.module_id)
+        index = siblings.index(chapter)
+        # Pure arithmetic decides where it lands (or that it can't move).
+        target = domain.swap_index(index, direction, len(siblings))
+        if target is None:
+            return False
+
+        other = siblings[target]
+        # Write positions from the reordered list rather than swapping the two
+        # stored values: legacy rows can share a position (all default to 0), and
+        # swapping equal numbers would change nothing. Renumbering the whole
+        # module also repairs those duplicates as a side effect.
+        siblings[index], siblings[target] = other, chapter
+        self._chapters.set_positions({c: i for i, c in enumerate(siblings)})
+        self._session.commit()
+        return True
