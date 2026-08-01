@@ -1,23 +1,24 @@
-"""Development / LAN entry point.
+"""Entry point. Serves with the Flask dev server in dev, waitress in prod.
 
-Run locally (default, localhost only):
-    python run.py
+Environment (`SUBJECT_TRACKER_ENV`): `dev` (default) | `prod` | `test`.
 
-Expose on your local network so other devices can reach it:
-    HOST=0.0.0.0 python run.py
-then open http://<this-machine-ip>:5000 from the other device.
+Dev (localhost):                 python run.py
+Dev on the LAN:                  HOST=0.0.0.0 python run.py
+Production (waitress):           SUBJECT_TRACKER_ENV=prod SUBJECT_TRACKER_SECRET=... python run.py
 
 Environment variables:
-    HOST   interface to bind (default 127.0.0.1; use 0.0.0.0 for LAN access)
-    PORT   port to listen on   (default 5000)
-    DEBUG  set to 1 to enable the reloader/debugger — ONLY honoured on localhost,
-           because the Werkzeug debugger allows code execution and must never be
-           reachable from the network.
+    SUBJECT_TRACKER_ENV     dev | prod | test  (default dev)
+    SUBJECT_TRACKER_SECRET  session signing key (REQUIRED in prod)
+    HOST                    interface to bind (default 127.0.0.1; 0.0.0.0 to expose)
+    PORT                    port to listen on   (default 5000)
+    DEBUG                   dev only: 1 enables the reloader/debugger — honoured
+                            ONLY on localhost (the Werkzeug debugger runs code).
 """
 
 import os
 
 from tracker import create_app
+from tracker.config import DEFAULT_SECRET
 
 app = create_app()
 
@@ -29,13 +30,21 @@ def _is_local(host: str) -> bool:
 if __name__ == "__main__":
     host = os.environ.get("HOST", "127.0.0.1")
     port = int(os.environ.get("PORT", "5000"))
-    # Debugger is only allowed when bound to localhost — never on a LAN bind.
-    debug = os.environ.get("DEBUG") == "1" and _is_local(host)
+    is_prod = app.config.get("ENV") == "prod"
 
-    if not _is_local(host) and app.config.get("SECRET_KEY") == "dev-secret-change-me":
+    if not _is_local(host) and app.config.get("SECRET_KEY") == DEFAULT_SECRET:
         print(
             "WARNING: using the default SECRET_KEY while exposed on the network.\n"
             "         Set one with: export SUBJECT_TRACKER_SECRET='<random-string>'\n"
         )
 
-    app.run(host=host, port=port, debug=debug)
+    if is_prod:
+        # Production: a real, multi-threaded WSGI server. No debugger, ever.
+        from waitress import serve
+
+        print(f"Serving Subject Tracker (production / waitress) on http://{host}:{port}")
+        serve(app, host=host, port=port)
+    else:
+        # Dev: Flask's built-in server. Debugger only on a localhost bind.
+        debug = os.environ.get("DEBUG") == "1" and _is_local(host)
+        app.run(host=host, port=port, debug=debug)

@@ -24,10 +24,15 @@ activity-tracking charts dashboard, a light/dark theme, and JSON backup/restore.
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-python run.py                 # local: http://127.0.0.1:5000  (open /register first)
+python run.py                 # dev: http://127.0.0.1:5000  (open /register first)
 HOST=0.0.0.0 python run.py    # LAN (also set SUBJECT_TRACKER_SECRET); see BUILD_CONTEXT §12
+SUBJECT_TRACKER_ENV=prod SUBJECT_TRACKER_SECRET=... python run.py   # prod (waitress)
 pytest                        # the full test suite
 ```
+
+Environments come from `SUBJECT_TRACKER_ENV` (`dev`/`prod`/`test`) via
+`config.get_config`. Prod runs on waitress, disables the debugger, and refuses the
+default secret. `wsgi.py` exposes the app for external WSGI servers.
 
 ## Architecture rules (do not break)
 

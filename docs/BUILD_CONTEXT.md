@@ -47,12 +47,13 @@ database migrations (dev data is disposable — see §12).
 | ORM | SQLAlchemy | 2.0.32 (2.0 typed `Mapped[]` style) |
 | Database | SQLite | stdlib (`sqlite3`), file `subject_tracker.db` |
 | Password hashing | Werkzeug | ships with Flask (`generate/check_password_hash`) |
+| Prod WSGI server | waitress | 3.0.0 (pure-Python, cross-platform) |
 | Tests | pytest | 8.3.2 |
 | Charts (client) | Chart.js | 4.4.3, **vendored** at `tracker/static/vendor/chart.umd.min.js` |
 | Animations/theme JS | vanilla | `tracker/static/app.js` |
 
-`requirements.txt` pins Flask, SQLAlchemy, pytest. Werkzeug arrives transitively
-with Flask. There are **no other runtime dependencies** (auth is hand-rolled).
+`requirements.txt` pins Flask, SQLAlchemy, waitress, pytest. Werkzeug arrives
+transitively with Flask. Auth is hand-rolled — no other runtime dependencies.
 
 ## 3. Where it lives
 
@@ -189,9 +190,10 @@ Dependencies point **inward**: `Routes → Services → Repositories → Models/
 
 ```
 subject-tracker/
-├── run.py                     Entry point; HOST/PORT/DEBUG env handling (see §11).
+├── run.py                     Entry point; dev → Flask server, prod → waitress (see §12).
+├── wsgi.py                     `app = create_app()` for external WSGI servers (gunicorn/waitress-serve).
 ├── scripts/
-│   └── squash_duplicate_plans.py   CLI for the one-date cleanup (see §12.5).
+│   └── squash_duplicate_plans.py   CLI for the one-date cleanup (see §12.6).
 ├── requirements.txt           Pinned deps.
 ├── README.md                  Quick start (points here).
 ├── .gitignore                 Ignores .venv, *.db, __pycache__, .DS_Store, etc.
@@ -199,13 +201,15 @@ subject-tracker/
 │   ├── BUILD_CONTEXT.md        This file.
 │   └── TEST_PLAN.md            Per-test purpose + strategy.
 └── tracker/                   The Flask package.
-    ├── __init__.py             App factory create_app(config): engine+session lifecycle
-    │                           (g.session per request), load_logged_in_user → g.user,
-    │                           `hm` Jinja filter, current_user template global,
-    │                           Cache-Control: no-store on HTML responses (after_request),
-    │                           registers all 6 blueprints.
-    ├── config.py               Config (DATABASE_URL, SECRET_KEY, MAX_CONTENT_LENGTH) +
-    │                           TestConfig (in-memory :memory: DB). Env-var driven.
+    ├── __init__.py             App factory create_app(config=None): resolves config from
+    │                           SUBJECT_TRACKER_ENV when None, enforces the prod-secret rule,
+    │                           engine+session lifecycle (g.session per request),
+    │                           load_logged_in_user → g.user, `hm` Jinja filter,
+    │                           current_user template global, Cache-Control: no-store on
+    │                           HTML responses (after_request), registers all 6 blueprints.
+    ├── config.py               Config (base) + DevConfig / ProdConfig / TestConfig,
+    │                           get_config(name) resolving SUBJECT_TRACKER_ENV. Holds
+    │                           DATABASE_URL, SECRET_KEY, MAX_CONTENT_LENGTH, cookie flags.
     ├── database.py             Base(DeclarativeBase); Database(url) → engine + scoped
     │                           session; create_all(); remove(). sqlite check_same_thread=False.
     ├── models.py               ORM models User/Subject/Module/Chapter/PlanAssignment/
@@ -371,13 +375,25 @@ Read in `config.py` and `run.py`:
 
 | Variable | Default | Meaning |
 |----------|---------|---------|
+| `SUBJECT_TRACKER_ENV` | `dev` | Environment: `dev` \| `prod` \| `test`. Selects the config class (`get_config`). Prod runs on waitress and requires a real secret. |
 | `SUBJECT_TRACKER_DB` | `sqlite:///<cwd>/subject_tracker.db` | SQLAlchemy DB URL. Tests use `:memory:` via `TestConfig`. |
-| `SUBJECT_TRACKER_SECRET` | `dev-secret-change-me` | Flask `SECRET_KEY` for signed sessions. **Set a real one when exposed.** |
+| `SUBJECT_TRACKER_SECRET` | `dev-secret-change-me` | Flask `SECRET_KEY` for signed sessions. **Required in prod** (app refuses to start with the default). |
+| `SUBJECT_TRACKER_HTTPS` | (off) | `1` sets `SESSION_COOKIE_SECURE` — enable only when actually behind HTTPS. |
 | `HOST` | `127.0.0.1` | Bind interface. `0.0.0.0` = reachable on the LAN. |
 | `PORT` | `5000` | Listen port. |
-| `DEBUG` | (off) | `1` enables reloader/debugger — **only honoured on localhost** (the Werkzeug debugger allows RCE and must never be network-reachable). |
+| `DEBUG` | (off) | Dev only: `1` enables reloader/debugger — **only honoured on localhost** (the Werkzeug debugger allows RCE and must never be network-reachable). Ignored in prod. |
 
-`MAX_CONTENT_LENGTH = 8 MB` (fixed in config) caps uploads.
+`MAX_CONTENT_LENGTH = 8 MB` (fixed in config) caps uploads. Session cookies are
+`HttpOnly` + `SameSite=Lax` in every environment.
+
+### Environments (`config.py`)
+- **dev** (`DevConfig`) — Flask dev server; **templates auto-reload** on change;
+  debugger available on localhost via `DEBUG=1`.
+- **prod** (`ProdConfig`) — served by **waitress**; no debugger; templates cached;
+  **refuses to start with the default `SECRET_KEY`** (`create_app` raises).
+- **test** (`TestConfig`) — in-memory DB, `TESTING=True`.
+`create_app(None)` resolves the class from `SUBJECT_TRACKER_ENV`; passing a class
+explicitly (e.g. `create_app(TestConfig)`) bypasses env resolution.
 
 ## 12. How to run — every path
 
@@ -412,7 +428,24 @@ must stay awake and running; `DEBUG` is ignored on a non-localhost bind by desig
 this is **plain HTTP** — fine on trusted Wi-Fi, not for the public internet
 (use a tunnel/host with HTTPS for that).
 
-### 12.3 Run the tests
+### 12.3 Production server (waitress)
+```bash
+SUBJECT_TRACKER_ENV=prod \
+SUBJECT_TRACKER_SECRET="$(python -c 'import secrets;print(secrets.token_hex(32))')" \
+SUBJECT_TRACKER_DB="sqlite:////var/lib/subject-tracker/app.db" \
+HOST=0.0.0.0 PORT=5000 python run.py            # serves via waitress, no debugger
+```
+Or with an external WSGI server against `wsgi:app`:
+```bash
+SUBJECT_TRACKER_ENV=prod SUBJECT_TRACKER_SECRET=... \
+    waitress-serve --listen=127.0.0.1:5000 wsgi:app
+SUBJECT_TRACKER_ENV=prod SUBJECT_TRACKER_SECRET=... \
+    gunicorn --bind 127.0.0.1:5000 wsgi:app      # Linux
+```
+Prod refuses the default secret. For public exposure put it behind a reverse
+proxy that terminates **HTTPS**, then set `SUBJECT_TRACKER_HTTPS=1`.
+
+### 12.4 Run the tests
 ```bash
 pytest                # run the full suite
 pytest -q             # quiet
@@ -420,7 +453,7 @@ pytest tests/test_backup.py -v      # one file, verbose
 ```
 Tests use a fresh in-memory SQLite DB per test (no touching the dev DB).
 
-### 12.4 Create an admin (no UI for this)
+### 12.5 Create an admin (no UI for this)
 `register` always makes a regular `user`. Promote/create an admin via a shell:
 ```bash
 python - <<'PY'
@@ -432,7 +465,7 @@ print("admin 'boss' created")
 PY
 ```
 
-### 12.5 Squash duplicate plans (one-off cleanup)
+### 12.6 Squash duplicate plans (one-off cleanup)
 Data created before the one-date-per-chapter rule may have a chapter planned on
 several dates. Collapse them (keeps the most recent per chapter):
 ```bash
@@ -442,7 +475,7 @@ python scripts/squash_duplicate_plans.py             # apply
 Idempotent and respects `SUBJECT_TRACKER_DB`. Logic lives in
 `tracker/maintenance.py` (`squash_duplicate_plans`).
 
-### 12.6 Reset the database (schema change or clean slate)
+### 12.7 Reset the database (schema change or clean slate)
 There is **no migration tool**. Dev data is disposable — after a model change:
 ```bash
 rm -f subject_tracker.db        # then start the server to recreate the schema
@@ -548,6 +581,12 @@ original build; the rest are incremental features and fixes.
   all-or-nothing, and a re-export equals the original. Replace-mode deferred.
 - **LAN serving**: `run.py` reads HOST/PORT/DEBUG; debugger disabled on non-localhost
   binds for safety; warns if the default SECRET_KEY is used while exposed.
+- **Dev / prod split** (`SUBJECT_TRACKER_ENV`): dev = Flask dev server + template
+  auto-reload; prod = **waitress** (real WSGI server), no debugger, cached templates,
+  and **refuses to boot with the default SECRET_KEY**. Chose waitress over gunicorn
+  because it is pure-Python and cross-platform (works on macOS/Windows). `wsgi.py`
+  exposes the app for any external WSGI server. Session cookies are HttpOnly +
+  SameSite=Lax always; Secure is opt-in via `SUBJECT_TRACKER_HTTPS` (needs real TLS).
 - **No DB migrations**: dev data disposable; recreate the file on schema change.
   Alembic is the documented upgrade path.
 - **App isolated under `subject-tracker/`** with its own git repo so it doesn't

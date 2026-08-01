@@ -8,14 +8,25 @@ from __future__ import annotations
 
 from flask import Flask, g
 
-from tracker.config import Config
+from tracker.config import DEFAULT_SECRET, Config, get_config
 from tracker.database import Database
 from tracker.domain import format_hm
 
 
-def create_app(config: type[Config] | Config = Config) -> Flask:
+def create_app(config: type[Config] | Config | None = None) -> Flask:
+    # No explicit config → resolve from SUBJECT_TRACKER_ENV (dev/prod/test).
+    if config is None:
+        config = get_config()
+
     app = Flask(__name__)
     app.config.from_object(config)
+
+    # Production must never run with the shipped dev secret.
+    if app.config.get("ENV") == "prod" and app.config["SECRET_KEY"] == DEFAULT_SECRET:
+        raise RuntimeError(
+            "Refusing to start in production with the default SECRET_KEY. "
+            "Set SUBJECT_TRACKER_SECRET to a long random value."
+        )
 
     database = Database(app.config["DATABASE_URL"])
     database.create_all()

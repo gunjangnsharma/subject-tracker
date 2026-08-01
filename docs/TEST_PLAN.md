@@ -1,7 +1,7 @@
 # Subject Tracker — Test Plan
 
 Every test and what it verifies. Built alongside the app. Run from
-`subject-tracker/` with `pytest` (111 tests). Suite runs against a fresh in-memory
+`subject-tracker/` with `pytest` (119 tests). Suite runs against a fresh in-memory
 SQLite database per test, so tests are isolated, deterministic and never touch the
 dev DB.
 
@@ -184,6 +184,18 @@ Last updated: 2026-08-01
 | `test_squash_leaves_single_assignment_untouched` | A chapter with one assignment is not touched. |
 | `test_squash_is_idempotent` | Running again removes nothing. |
 | `test_squash_handles_multiple_chapters` | Squashes several chapters at once; counts correct; singletons untouched. |
+
+### 3.13 `test_config.py` — dev / prod / test environments (8)
+| Test | Checks |
+|------|--------|
+| `test_get_config_resolves_names` | `get_config` maps dev/prod/test → the right class; unknown → dev. |
+| `test_get_config_reads_env` | `SUBJECT_TRACKER_ENV` selects the config; default is dev. |
+| `test_dev_reloads_templates_prod_caches` | Dev auto-reloads templates; prod caches them. |
+| `test_prod_debug_off` | `ProdConfig.DEBUG` is False. |
+| `test_prod_refuses_default_secret` | `create_app` raises in prod with the default `SECRET_KEY`. |
+| `test_prod_with_real_secret_starts` | Prod app boots with a real secret (ENV=prod, DEBUG off). |
+| `test_session_cookie_hardening` | Session cookies are HttpOnly + SameSite=Lax. |
+| `test_default_create_app_is_dev` | `create_app()` with no env resolves to dev. |
 
 ## 4. Manual QA checklist (before a release)
 

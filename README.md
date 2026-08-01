@@ -35,6 +35,19 @@ Then open `http://<this-machine-LAN-IP>:5000` from the other device
 (find the IP with `ipconfig getifaddr en0` on macOS Wi-Fi). Plain HTTP — fine on a
 trusted network, not for the public internet. See BUILD_CONTEXT §12 for details.
 
+## Run — production (waitress)
+
+```bash
+SUBJECT_TRACKER_ENV=prod \
+SUBJECT_TRACKER_SECRET="$(python -c 'import secrets;print(secrets.token_hex(32))')" \
+HOST=0.0.0.0 PORT=5000 python run.py
+```
+
+Prod serves via **waitress** (no debugger) and **refuses to start with the default
+secret**. Or point any WSGI server at `wsgi:app`
+(`waitress-serve --listen=127.0.0.1:5000 wsgi:app`, or `gunicorn wsgi:app` on Linux).
+For public access put it behind an HTTPS reverse proxy and set `SUBJECT_TRACKER_HTTPS=1`.
+
 ## Tests
 
 ```bash
@@ -57,7 +70,9 @@ PY
 
 | Variable | Default | Meaning |
 |----------|---------|---------|
+| `SUBJECT_TRACKER_ENV` | `dev` | `dev` \| `prod` \| `test`. Prod uses waitress + requires a real secret. |
 | `SUBJECT_TRACKER_DB` | `sqlite:///<cwd>/subject_tracker.db` | Database URL. |
-| `SUBJECT_TRACKER_SECRET` | `dev-secret-change-me` | Session signing key — set a real one when exposed. |
-| `HOST` / `PORT` | `127.0.0.1` / `5000` | Bind interface / port (`HOST=0.0.0.0` for LAN). |
-| `DEBUG` | off | `1` enables the debugger — localhost only. |
+| `SUBJECT_TRACKER_SECRET` | `dev-secret-change-me` | Session signing key — **required in prod**. |
+| `SUBJECT_TRACKER_HTTPS` | off | `1` marks session cookies Secure (use only behind HTTPS). |
+| `HOST` / `PORT` | `127.0.0.1` / `5000` | Bind interface / port (`HOST=0.0.0.0` to expose). |
+| `DEBUG` | off | Dev only: `1` enables the debugger — localhost only. |
