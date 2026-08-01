@@ -10,7 +10,7 @@ from flask import Flask, g
 
 from tracker.config import Config
 from tracker.database import Database
-from tracker.domain import minutes_to_hours
+from tracker.domain import format_hm
 
 
 def create_app(config: type[Config] | Config = Config) -> Flask:
@@ -42,10 +42,10 @@ def create_app(config: type[Config] | Config = Config) -> Flask:
             database.Session.rollback()
         database.remove()
 
-    # Jinja helper: render minutes as hours (90 -> "1.5").
-    @app.template_filter("hours")
-    def _hours_filter(minutes: float) -> str:
-        return f"{minutes_to_hours(minutes):g}"
+    # Jinja helper: render minutes as hours+minutes text (130 -> "2h 10m").
+    @app.template_filter("hm")
+    def _hm_filter(minutes: float) -> str:
+        return format_hm(minutes)
 
     from tracker.routes.admin import bp as admin_bp
     from tracker.routes.auth import bp as auth_bp

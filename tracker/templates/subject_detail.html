@@ -35,14 +35,14 @@
           <tr class="{{ 'done' if chapter.is_done else '' }}">
             <td>{{ chapter.title }}</td>
             <td>{{ ui.kind_pill(chapter.kind) }}</td>
-            <td>{{ chapter.duration_minutes|hours }}h</td>
+            <td>{{ chapter.duration_minutes|hm }}</td>
             <td>
               <form class="completion-form" method="post"
                     action="{{ url_for('subjects.update_completion', chapter_id=chapter.id) }}">
                 <input type="number" name="completion" min="0" max="10"
                        value="{{ chapter.completion }}">
                 <button type="submit">Save</button>
-                <span class="muted">{{ chapter.progress.completed_hours }}h done</span>
+                <span class="muted">{{ chapter.progress.completed_hm }} done</span>
               </form>
             </td>
             <td>

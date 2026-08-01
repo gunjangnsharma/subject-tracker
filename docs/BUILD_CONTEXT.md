@@ -87,8 +87,13 @@ relationships and with `ondelete="CASCADE"` on the FKs.
 ## 5. Core business rules
 
 ### 5.1 Duration
-- Stored in **minutes** (integer). Displayed in **hours** (`minutes / 60`, e.g. 90 → `1.5h`).
-- Jinja filter `hours` (registered in the app factory) formats it: `{{ minutes|hours }}`.
+- Stored in **minutes** (integer). Displayed as **hours + minutes** everywhere:
+  `domain.format_hm(minutes)` → `130 → "2h 10m"`, `120 → "2h"`, `30 → "30m"`,
+  `0 → "0m"` (rounds to the nearest whole minute; completed minutes can be
+  fractional). Exposed as the Jinja filter `hm` (`{{ minutes|hm }}`) and as
+  `Progress.total_hm / completed_hm / remaining_hm`.
+- `domain.minutes_to_hours` (decimal hours) survives **only** for numeric chart
+  axes; chart tooltips convert back to h/m via `formatHM` in `app.js`.
 
 ### 5.2 Completion — the "1–10" metric
 - `completion` is an integer **0–10** = tenths of the chapter done (`10`=finished, `5`=half, `0`=not started).
@@ -457,6 +462,9 @@ Each milestone is a single commit:
   so a chapter never appears in more than one day/section. Enforced in the service
   + importer (they are the only writers) rather than a DB constraint, to avoid a
   migration and keep old-backup imports working.
+- **Durations shown as "Xh Ym"** (not decimal hours): one formatter `format_hm`
+  drives every text surface (filter, `Progress.*_hm`, JS count-up, chart tooltips).
+  Decimal hours kept only for chart axes.
 - **Week plan = rolling 7-day window** (today..today+6) grouped by day, chosen over
   a fixed Mon–Sun week so the user always sees the week *ahead* (per their T+7
   request). The dashboard activity chart stays Mon–Sun.

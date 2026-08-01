@@ -28,11 +28,11 @@ def test_subject_detail_and_chapter_flow(auth_client):  # W3, W4
     )
     page = auth_client.get("/subjects/1").get_data(as_text=True)
     assert "Handshake" in page
-    assert "1.5h" in page  # 90 minutes displayed as hours
+    assert "1h 30m" in page  # 90 minutes displayed as hours + minutes
 
     auth_client.post("/chapters/1/completion", data={"completion": "5"}, follow_redirects=True)
     page = auth_client.get("/subjects/1").get_data(as_text=True)
-    assert "0.75h done" in page  # 90 * 5/10 = 45 min = 0.75h
+    assert "45m done" in page  # 90 * 5/10 = 45 min
 
 
 def test_completion_update_returns_to_originating_page(auth_client):

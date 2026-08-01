@@ -1,7 +1,7 @@
 # Subject Tracker — Test Plan
 
 Every test and what it verifies. Built alongside the app. Run from
-`subject-tracker/` with `pytest` (98 tests). Suite runs against a fresh in-memory
+`subject-tracker/` with `pytest` (100 tests). Suite runs against a fresh in-memory
 SQLite database per test, so tests are isolated, deterministic and never touch the
 dev DB.
 
@@ -29,10 +29,12 @@ Last updated: 2026-08-01
 
 ## 3. Test inventory — each test and what it checks
 
-### 3.1 `test_domain.py` — pure math (7)
+### 3.1 `test_domain.py` — pure math (9)
 | Test | Checks |
 |------|--------|
-| `test_minutes_to_hours` | `90 → 1.5`, `0 → 0.0`. |
+| `test_minutes_to_hours` | `90 → 1.5`, `0 → 0.0` (decimal hours for chart axes). |
+| `test_format_hm` | `130 → "2h 10m"`, `120 → "2h"`, `30 → "30m"`, `0 → "0m"`, `22.5 → "22m"`. |
+| `test_progress_hm_strings` | `Progress` exposes `total_hm/completed_hm/remaining_hm` as "Xh Ym". |
 | `test_completed_minutes` | `120@5 → 60`, `60@10 → 60`, `60@0 → 0`. |
 | `test_percent_safe_and_correct` | `percent(0,0) → 0` (no divide-by-zero); `percent(30,120) → 25.0`. |
 | `test_completion_clamped` | Clamp `11 → 10`, `-1 → 0`, `7 → 7`. |
@@ -122,7 +124,7 @@ Last updated: 2026-08-01
 | `test_dashboard_ok` | `GET /` → 200 when logged in. |
 | `test_subjects_page_ok` | `GET /subjects` → 200. |
 | `test_create_subject_appears` | `POST /subjects` then it shows on `/subjects`. |
-| `test_subject_detail_and_chapter_flow` | Add module + 90-min chapter; page shows `1.5h`; set completion 5 → `0.75h done`. |
+| `test_subject_detail_and_chapter_flow` | Add module + 90-min chapter; page shows `1h 30m`; set completion 5 → `45m done`. |
 | `test_today_and_week_ok` | `/today` and `/week` → 200. |
 | `test_missing_subject_404` | `/subjects/999` (nonexistent/foreign) → 404. |
 | `test_protected_routes_redirect_when_logged_out` | `/`, `/subjects`, `/today`, `/week` → 302 to `/login` when logged out. |

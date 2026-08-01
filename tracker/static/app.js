@@ -38,18 +38,31 @@
     };
   }
 
+  // --- Format minutes as "Xh Ym" (130 -> "2h 10m", 30 -> "30m", 0 -> "0m") -
+  function formatHM(minutes) {
+    const total = Math.round(minutes);
+    const h = Math.floor(total / 60);
+    const m = total - h * 60;
+    if (h && m) return h + "h " + m + "m";
+    if (h) return h + "h";
+    return m + "m";
+  }
+
   // --- Count-up animation for elements with .count[data-to] ---------------
+  // data-format="hm": interpret data-to as MINUTES and render as "Xh Ym".
   function animateCount(el) {
     const to = parseFloat(el.dataset.to || "0");
     const decimals = parseInt(el.dataset.decimals || "0", 10);
+    const asHM = el.dataset.format === "hm";
+    const render = (v) => (asHM ? formatHM(v) : v.toFixed(decimals));
     const duration = 900;
     const start = performance.now();
     function frame(now) {
       const t = Math.min(1, (now - start) / duration);
       const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
-      el.textContent = (to * eased).toFixed(decimals);
+      el.textContent = render(to * eased);
       if (t < 1) requestAnimationFrame(frame);
-      else el.textContent = to.toFixed(decimals);
+      else el.textContent = render(to);
     }
     requestAnimationFrame(frame);
   }
@@ -97,6 +110,16 @@
     });
   }
 
+  // Chart tooltip: values are in hours; show them as "Xh Ym".
+  function hmTooltip(context) {
+    const parsed = context.parsed;
+    const hours = parsed && typeof parsed === "object" ? parsed.y : parsed;
+    const name = context.dataset.label || context.label || "";
+    const text = formatHM(hours * 60);
+    return name ? name + ": " + text : text;
+  }
+  const hmTooltipPlugin = { callbacks: { label: hmTooltip } };
+
   // --- Dashboard charts (Chart.js) ----------------------------------------
   let dashboardData = null; // remembered so we can redraw on theme change
   let charts = [];
@@ -127,7 +150,7 @@
           },
           options: {
             cutout: "72%",
-            plugins: { legend: { display: false } },
+            plugins: { legend: { display: false }, tooltip: hmTooltipPlugin },
             animation: { animateRotate: true, duration: 1000 },
           },
         })
@@ -151,7 +174,7 @@
               x: { stacked: true, grid: { color: c.grid }, ticks: { color: c.text } },
               y: { stacked: true, beginAtZero: true, grid: { color: c.grid }, ticks: { color: c.text } },
             },
-            plugins: { legend: { position: "bottom" } },
+            plugins: { legend: { position: "bottom" }, tooltip: hmTooltipPlugin },
             animation: { duration: 900 },
           },
         })
@@ -175,7 +198,7 @@
               x: { grid: { color: c.grid }, ticks: { color: c.text } },
               y: { beginAtZero: true, grid: { color: c.grid }, ticks: { color: c.text } },
             },
-            plugins: { legend: { position: "bottom" } },
+            plugins: { legend: { position: "bottom" }, tooltip: hmTooltipPlugin },
             animation: { duration: 900 },
           },
         })

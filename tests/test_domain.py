@@ -10,6 +10,23 @@ def test_minutes_to_hours():  # D1, D2
     assert domain.minutes_to_hours(0) == 0.0
 
 
+def test_format_hm():
+    assert domain.format_hm(130) == "2h 10m"   # the headline example
+    assert domain.format_hm(90) == "1h 30m"
+    assert domain.format_hm(120) == "2h"       # whole hours -> no minutes
+    assert domain.format_hm(30) == "30m"       # under an hour -> minutes only
+    assert domain.format_hm(0) == "0m"
+    assert domain.format_hm(60) == "1h"
+    assert domain.format_hm(22.5) == "22m"     # fractional minutes rounded
+
+
+def test_progress_hm_strings():
+    p = domain.chapter_progress(130, 5)         # 130 min, 65 done, 65 left
+    assert p.total_hm == "2h 10m"
+    assert p.completed_hm == "1h 5m"
+    assert p.remaining_hm == "1h 5m"
+
+
 def test_completed_minutes():  # D3, D4, D5
     assert domain.completed_minutes(120, 5) == 60      # 2h video half done
     assert domain.completed_minutes(60, 10) == 60      # fully done

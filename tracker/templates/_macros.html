@@ -1,10 +1,10 @@
 {# Reusable progress bar. `p` is a domain.Progress. #}
 {% macro progress_bar(p) %}
-  <div class="progress" title="{{ p.completed_hours }}h of {{ p.total_hours }}h">
+  <div class="progress" title="{{ p.completed_hm }} of {{ p.total_hm }}">
     <div class="progress-fill" style="width: {{ p.percent }}%"></div>
     <span class="progress-label">
-      {{ p.percent }}% &middot; {{ p.completed_hours }}h / {{ p.total_hours }}h done
-      &middot; {{ p.remaining_hours }}h left
+      {{ p.percent }}% &middot; {{ p.completed_hm }} / {{ p.total_hm }} done
+      &middot; {{ p.remaining_hm }} left
     </span>
   </div>
 {% endmacro %}
@@ -28,7 +28,7 @@
           </div>
           <div class="plan-item-meta">
             {% if show_from %}<span class="carried">carried from {{ item.planned_date }}</span>{% endif %}
-            <span class="muted">{{ p.completed_hours }}h / {{ p.total_hours }}h ({{ p.percent }}%)</span>
+            <span class="muted">{{ p.completed_hm }} / {{ p.total_hm }} ({{ p.percent }}%)</span>
             <form class="completion-form inline" method="post"
                   action="{{ url_for('subjects.update_completion', chapter_id=item.chapter.id) }}">
               <input type="number" name="completion" min="0" max="10" value="{{ item.chapter.completion }}">

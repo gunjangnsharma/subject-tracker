@@ -17,16 +17,16 @@
     <h2>Overall progress</h2>
     <p class="muted">Across {{ view.subjects|length }} subject(s)</p>
     <div class="hero-figures">
-      <div><span class="big count" data-to="{{ view.overall.completed_hours }}" data-decimals="2">0</span><span class="unit">h done</span></div>
-      <div><span class="big count" data-to="{{ view.overall.remaining_hours }}" data-decimals="2">0</span><span class="unit">h left</span></div>
-      <div><span class="big count" data-to="{{ view.overall.total_hours }}" data-decimals="2">0</span><span class="unit">h total</span></div>
+      <div><span class="big count" data-to="{{ view.overall.completed_minutes }}" data-format="hm">0m</span><span class="unit">done</span></div>
+      <div><span class="big count" data-to="{{ view.overall.remaining_minutes }}" data-format="hm">0m</span><span class="unit">left</span></div>
+      <div><span class="big count" data-to="{{ view.overall.total_minutes }}" data-format="hm">0m</span><span class="unit">total</span></div>
     </div>
   </div>
 </section>
 
 <section class="stat-grid">
   <div class="stat-card accent-green reveal" style="--i:0">
-    <div class="stat-value"><span class="count" data-to="{{ (view.today.studied_minutes/60)|round(2) }}" data-decimals="2">0</span>h</div>
+    <div class="stat-value"><span class="count" data-to="{{ view.today.studied_minutes }}" data-format="hm">0m</span></div>
     <div class="stat-label">Studied today</div>
   </div>
   <div class="stat-card accent-blue reveal" style="--i:1">
@@ -38,7 +38,7 @@
     <div class="stat-label">Backlog items</div>
   </div>
   <div class="stat-card accent-violet reveal" style="--i:3">
-    <div class="stat-value"><span class="count" data-to="{{ (view.week.studied_total/60)|round(2) }}" data-decimals="2">0</span>h</div>
+    <div class="stat-value"><span class="count" data-to="{{ view.week.studied_total }}" data-format="hm">0m</span></div>
     <div class="stat-label">Studied this week</div>
   </div>
 </section>
