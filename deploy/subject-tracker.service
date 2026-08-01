@@ -1,0 +1,20 @@
+[Unit]
+Description=Subject Tracker (Flask + waitress)
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/subject-tracker
+EnvironmentFile=/etc/subject-tracker.env
+# Serve the WSGI app with waitress on localhost; nginx proxies to it.
+ExecStart=/home/ubuntu/subject-tracker/.venv/bin/waitress-serve --listen=127.0.0.1:5000 wsgi:app
+Restart=always
+RestartSec=3
+# Light hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

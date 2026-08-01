@@ -197,9 +197,14 @@ subject-tracker/
 ├── requirements.txt           Pinned deps.
 ├── README.md                  Quick start (points here).
 ├── .gitignore                 Ignores .venv, *.db, __pycache__, .DS_Store, etc.
+├── deploy/                    Production deployment artifacts (see docs/DEPLOY_ORACLE.md):
+│   ├── subject-tracker.service     systemd unit (runs waitress-serve wsgi:app).
+│   ├── nginx-subject-tracker.conf  nginx reverse-proxy site.
+│   └── subject-tracker.env.example env template (secret, DB path, HTTPS flag).
 ├── docs/
 │   ├── BUILD_CONTEXT.md        This file.
-│   └── TEST_PLAN.md            Per-test purpose + strategy.
+│   ├── TEST_PLAN.md            Per-test purpose + strategy.
+│   └── DEPLOY_ORACLE.md        Step-by-step Oracle Cloud Always-Free hosting guide.
 └── tracker/                   The Flask package.
     ├── __init__.py             App factory create_app(config=None): resolves config from
     │                           SUBJECT_TRACKER_ENV when None, enforces the prod-secret rule,
@@ -444,6 +449,13 @@ SUBJECT_TRACKER_ENV=prod SUBJECT_TRACKER_SECRET=... \
 ```
 Prod refuses the default secret. For public exposure put it behind a reverse
 proxy that terminates **HTTPS**, then set `SUBJECT_TRACKER_HTTPS=1`.
+
+**Free hosting recipe:** [docs/DEPLOY_ORACLE.md](DEPLOY_ORACLE.md) walks through an
+Oracle Cloud Always-Free VM end to end (open ports at the cloud **and** host
+firewall, venv, systemd `waitress-serve wsgi:app`, nginx reverse proxy, certbot
+HTTPS, admin creation, backups). Ready-made files live in `deploy/`
+(`subject-tracker.service`, `nginx-subject-tracker.conf`, `subject-tracker.env.example`).
+SQLite lives on the VM's persistent boot volume, so no database change is needed.
 
 ### 12.4 Run the tests
 ```bash
