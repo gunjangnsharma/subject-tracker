@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://example.com/subject-tracker-backup.schema.json",
+  "title": "subject-tracker-backup",
+  "description": "Import/Export JSON for Subject Tracker. All times are whole minutes.",
+  "type": "object",
+  "required": ["format", "version", "subjects"],
+  "properties": {
+    "format": { "const": "subject-tracker-backup" },
+    "version": { "enum": [1, 2] },
+    "exported_at": { "type": "string" },
+    "user": {
+      "type": "object",
+      "properties": { "username": { "type": "string" } }
+    },
+    "subjects": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/subject" }
+    }
+  },
+  "definitions": {
+    "subject": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "modules": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/module" }
+        }
+      }
+    },
+    "module": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "chapters": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/chapter" }
+        }
+      }
+    },
+    "chapter": {
+      "type": "object",
+      "required": ["title", "duration_minutes", "completed_minutes"],
+      "properties": {
+        "title": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["video", "text"] },
+        "duration_minutes": { "type": "integer", "minimum": 0 },
+        "completed_minutes": { "type": "integer", "minimum": 0 },
+        "completion": { "type": "integer", "minimum": 0, "maximum": 10 },
+        "plan_dates": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
+        },
+        "activity": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/activity" }
+        }
+      }
+    },
+    "activity": {
+      "type": "object",
+      "required": ["occurred_on", "minutes_delta"],
+      "properties": {
+        "occurred_on": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "minutes_delta": { "type": "number" }
+      }
+    }
+  }
+}

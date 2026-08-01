@@ -205,7 +205,9 @@ subject-tracker/
 │   ├── BUILD_CONTEXT.md        This file.
 │   ├── TEST_PLAN.md            Per-test purpose + strategy.
 │   ├── DEPLOY_ORACLE.md        Step-by-step Oracle Cloud Always-Free hosting guide.
-│   └── DEPLOY_RASPBERRY_PI.md  Step-by-step Raspberry Pi (home LAN) hosting guide.
+│   ├── DEPLOY_RASPBERRY_PI.md  Step-by-step Raspberry Pi (home LAN) hosting guide.
+│   ├── BACKUP_SCHEMA.md        Import/Export JSON blueprint (rules + generation prompt).
+│   └── backup.schema.json      JSON Schema (draft-07) for the backup format.
 └── tracker/                   The Flask package.
     ├── __init__.py             App factory create_app(config=None): resolves config from
     │                           SUBJECT_TRACKER_ENV when None, enforces the prod-secret rule,
@@ -343,7 +345,9 @@ returns **404** (via repository `get()` returning None), never another user's da
 Versioned document (`format: "subject-tracker-backup"`, `version: 2`). Chapters
 carry `completed_minutes`. **Importing v1** (which stored `completion` 0–10) is
 still supported — it converts `completed = round(duration * completion / 10)`.
-Export always emits v2.
+Export always emits v2. **Full blueprint + JSON Schema:**
+[docs/BACKUP_SCHEMA.md](BACKUP_SCHEMA.md) and [docs/backup.schema.json](backup.schema.json)
+(hand these to any tool/agent to generate a valid import file).
 
 ```json
 {
