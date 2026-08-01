@@ -10,6 +10,13 @@ venv/
 *.db
 *.sqlite
 *.sqlite3
+# SQLite WAL sidecars (the app runs in WAL mode — see BUILD_CONTEXT §11.1).
+*.db-wal
+*.db-shm
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite3-wal
+*.sqlite3-shm
 instance/
 
 # OS
