@@ -79,6 +79,24 @@
     document.querySelectorAll(".count").forEach(animateCount);
   }
 
+  // --- Date inputs: open the native picker on click anywhere in the field --
+  // Natively only the small calendar icon opens the popup; this makes the
+  // whole field clickable, which is what users expect.
+  function setupDatePickers() {
+    document.addEventListener("click", function (event) {
+      const el = event.target;
+      if (el && el.matches && el.matches('input[type="date"]')) {
+        if (typeof el.showPicker === "function") {
+          try {
+            el.showPicker();
+          } catch (e) {
+            /* not user-activated / unsupported — ignore, native focus still works */
+          }
+        }
+      }
+    });
+  }
+
   // --- Dashboard charts (Chart.js) ----------------------------------------
   let dashboardData = null; // remembered so we can redraw on theme change
   let charts = [];
@@ -182,6 +200,7 @@
   document.addEventListener("DOMContentLoaded", function () {
     setupReveal();
     runCounts();
+    setupDatePickers();
     const toggle = document.getElementById("themeToggle");
     if (toggle) toggle.addEventListener("click", toggleTheme);
   });

@@ -103,7 +103,11 @@ def update_completion(chapter_id: int):
     except ValueError:
         value = 0
     service.set_completion(chapter_id, value)
-    return redirect(url_for("subjects.subject_detail", subject_id=subject_id))
+    # Return to the page the form was submitted from (subject detail, today or week),
+    # falling back to the subject detail page.
+    return redirect(
+        request.referrer or url_for("subjects.subject_detail", subject_id=subject_id)
+    )
 
 
 @bp.post("/chapters/<int:chapter_id>/delete")

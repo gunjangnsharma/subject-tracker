@@ -35,6 +35,26 @@ def test_subject_detail_and_chapter_flow(auth_client):  # W3, W4
     assert "0.75h done" in page  # 90 * 5/10 = 45 min = 0.75h
 
 
+def test_completion_update_returns_to_originating_page(auth_client):
+    # Saving completion from /today (or /week) should return there, not jump to
+    # the subject detail page. We simulate the browser sending a Referer header.
+    auth_client.post("/subjects", data={"name": "S"}, follow_redirects=True)
+    auth_client.post("/subjects/1/modules", data={"name": "M"}, follow_redirects=True)
+    auth_client.post(
+        "/modules/1/chapters",
+        data={"title": "C", "kind": "video", "duration_minutes": "60"},
+        follow_redirects=True,
+    )
+    for origin in ("/today", "/week"):
+        resp = auth_client.post(
+            "/chapters/1/completion",
+            data={"completion": "3"},
+            headers={"Referer": f"http://localhost{origin}"},
+        )
+        assert resp.status_code == 302
+        assert resp.headers["Location"].endswith(origin)
+
+
 def test_today_and_week_ok(auth_client):  # W5
     assert auth_client.get("/today").status_code == 200
     assert auth_client.get("/week").status_code == 200

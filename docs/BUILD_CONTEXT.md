@@ -268,6 +268,11 @@ returns **404** (via repository `get()` returning None), never another user's da
   theme **before paint** to avoid a flash.
 - Charts read colors from CSS variables (`getComputedStyle`) and are **destroyed +
   rebuilt on toggle** so they always match the theme.
+- **Native controls follow the theme** via `color-scheme` (`light` on `:root`,
+  `dark` on `:root[data-theme="dark"]`). Without this the `<input type="date">`
+  calendar icon is a dark glyph on a dark field → invisible in dark mode.
+- **Date fields open on click anywhere**: `app.js` calls `input.showPicker()` on
+  click (natively only the small icon opens the calendar).
 - **Gotcha (do not reintroduce):** set the body background with **separate**
   `background-color: var(--bg)` and `background-image: var(--bg-accent)`. A
   `var(--color)` inside the `background` shorthand is parsed as an *image* layer,

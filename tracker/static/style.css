@@ -1,4 +1,7 @@
 :root {
+  /* Render native controls (date picker, calendar icon, scrollbars) for light. */
+  color-scheme: light;
+
   /* Core surfaces & text */
   --bg: #f6f7f9;
   --bg-accent: none;
@@ -39,6 +42,9 @@
 
 /* ============ Flashy dark theme ============ */
 :root[data-theme="dark"] {
+  /* Native controls (date picker + its icon) render dark & stay visible. */
+  color-scheme: dark;
+
   --bg: #080b16;
   --bg-accent:
     radial-gradient(60rem 40rem at 15% -10%, rgba(91,140,255,0.16), transparent 60%),
