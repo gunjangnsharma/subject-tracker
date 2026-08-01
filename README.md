@@ -38,7 +38,7 @@ trusted network, not for the public internet. See BUILD_CONTEXT §12 for details
 ## Tests
 
 ```bash
-pytest            # all 77 tests
+pytest            # run the full test suite
 pytest -v         # show each test name
 ```
 

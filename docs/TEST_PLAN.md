@@ -119,13 +119,13 @@ Last updated: 2026-08-01
 | `test_regular_user_forbidden_from_admin` | Non-admin hitting `/admin` → 403. |
 | `test_admin_link_hidden_for_regular_user` | The Admin nav link is absent for a regular user. |
 
-### 3.9 `test_routes.py` — route smoke + auth gating (16)
+### 3.9 `test_routes.py` — route smoke + auth gating (17)
 | Test | Checks |
 |------|--------|
 | `test_dashboard_ok` | `GET /` → 200 when logged in. |
 | `test_subjects_page_ok` | `GET /subjects` → 200. |
 | `test_create_subject_appears` | `POST /subjects` then it shows on `/subjects`. |
-| `test_subject_detail_and_chapter_flow` | Add module + 90-min chapter; page shows `1h 30m`; set completion 5 → `45m done`. |
+| `test_subject_detail_and_chapter_flow` | Add module + 90-min chapter; page shows `1h 30m`; set completed 45m → `45m of 1h 30m`. |
 | `test_today_and_week_ok` | `/today` and `/week` → 200. |
 | `test_missing_subject_404` | `/subjects/999` (nonexistent/foreign) → 404. |
 | `test_protected_routes_redirect_when_logged_out` | `/`, `/subjects`, `/today`, `/week` → 302 to `/login` when logged out. |
@@ -134,6 +134,11 @@ Last updated: 2026-08-01
 | `test_completion_ajax_returns_json` | AJAX completion POST returns JSON (completed_minutes/hm/is_done). |
 | `test_theme_toggle_present_on_every_page` | Base layout ships the toggle button + the no-flash theme script. |
 | `test_completion_update_returns_to_originating_page` | Saving completion from `/today` or `/week` redirects back there (via Referer), not to subject detail. |
+| `test_plan_requires_a_date` | Planning without a date does nothing + flashes "Pick a date" (no silent today default). |
+| `test_plan_with_a_date_assigns` | Planning with a date assigns the chapter to that date. |
+| `test_plan_rejects_past_date` | Planning a past date is refused (flash "past date"); nothing assigned. |
+| `test_plan_allows_future_date` | Planning a future date assigns it (shows on `/week`). |
+| `test_html_pages_are_not_cached` | Dynamic HTML sends `Cache-Control: no-store`; static assets don't. |
 
 ### 3.10 `test_backup.py` — JSON export / import (17)
 | Test | Checks |
@@ -144,6 +149,7 @@ Last updated: 2026-08-01
 | `test_import_preserves_completion_without_extra_activity` | Completion restored verbatim; no fabricated activity events. |
 | `test_import_keeps_one_plan_date_per_chapter` | Multiple `plan_dates` collapse to the first (one date per chapter). |
 | `test_import_v1_backup_converts_completion_to_minutes` | Legacy v1 (0–10) import converts to completed minutes. |
+| `test_import_accepts_past_plan_dates` | Import restores past-dated plans verbatim (no-back-dating is route-only). |
 | `test_import_is_additive` | Existing subjects kept; imported ones added. |
 | `test_invalid_envelope_rejected` (×4 params) | Non-dict / wrong format / bad version / non-list subjects → `BackupError`. |
 | `test_invalid_kind_rejected_and_rolls_back` | Bad `kind` raises **and** nothing persists (atomic rollback). |
@@ -202,7 +208,7 @@ Last updated: 2026-08-01
 
 ```bash
 cd subject-tracker
-pytest -q                          # all 77 tests
+pytest -q                          # run the full suite
 pytest tests/test_planning.py -q   # one file
 pytest -k backlog -q               # by keyword
 pytest -v                          # show each test name

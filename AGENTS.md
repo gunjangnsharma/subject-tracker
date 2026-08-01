@@ -15,8 +15,8 @@ activity-tracking charts dashboard, a light/dark theme, and JSON backup/restore.
    full architecture (file-by-file), every business rule, routes, auth, theming,
    backup format, config/env vars, run instructions, decisions log. Detailed enough
    to regenerate the app from scratch.
-2. **[docs/TEST_PLAN.md](docs/TEST_PLAN.md)** — every one of the 77 tests and what
-   it checks, plus the fixtures.
+2. **[docs/TEST_PLAN.md](docs/TEST_PLAN.md)** — every test and what it checks, plus
+   the fixtures (the file states the current total).
 3. **[README.md](README.md)** — quick start (local + LAN), admin creation, env vars.
 
 ## Run & test (from `subject-tracker/`)
@@ -26,7 +26,7 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 python run.py                 # local: http://127.0.0.1:5000  (open /register first)
 HOST=0.0.0.0 python run.py    # LAN (also set SUBJECT_TRACKER_SECRET); see BUILD_CONTEXT §12
-pytest                        # all 77 tests
+pytest                        # the full test suite
 ```
 
 ## Architecture rules (do not break)
@@ -47,7 +47,7 @@ pytest                        # all 77 tests
 ## Workflow
 
 - **Commit per feature milestone**, not per file. Each commit should build and have a
-  **green test suite** (`pytest` — currently 77 passing). Don't commit red.
+  **green test suite** (`pytest`). Don't commit red.
 - **Add tests with the feature.** Match the existing style: unit tests for
   `domain.py`, integration tests for services against the in-memory DB, route/smoke
   tests via the Flask test client. Document each new test's purpose in TEST_PLAN.md.
@@ -66,3 +66,14 @@ pytest                        # all 77 tests
   already refuses this; keep it that way (the debugger allows remote code execution).
 - Import (`/import`) is additive + atomic + verbatim; don't make it fabricate
   activity events or partially commit on error.
+- **The no-back-dating rule is route-only.** `PlanningService.assign` and the backup
+  importer still accept any date (historical/backlog data, restores). Only the plan
+  route rejects past dates. Don't push that check down into the service.
+- **Planning requires an explicit date.** Never re-introduce a "default to today"
+  when the date is empty — that caused a real bug.
+- **HTML responses are `Cache-Control: no-store`** (app factory `after_request`), so
+  dynamic pages never show a stale view. Keep it; static assets stay cacheable.
+- **Completion is edited only on the plan pages** (`/today`, `/week`) via the
+  `completion_control` macro (Done checkbox + h/m inputs that AJAX-save on blur).
+  The subject page is read-only (`completion_display`). Completing always dates the
+  activity to `today`, never the planned day.

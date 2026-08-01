@@ -121,7 +121,7 @@ relationships and with `ondelete="CASCADE"` on the FKs.
 Derived live so they can't drift. Implemented as `domain.Progress` (a frozen
 dataclass holding `total_minutes` + `completed_minutes`, with `remaining`,
 `percent`, and `*_hours` properties; `Progress + Progress` sums them).
-- **Chapter**: `completed = duration*completion/10`, `remaining = duration - completed`.
+- **Chapter**: `completed = completed_minutes` (clamped 0..duration), `remaining = duration - completed`.
 - **Module**: sum of its chapters. **Subject**: sum of its modules. **Overall**: sum of subjects.
 - **Percent** = `completed / total * 100`, or `0` when total is 0 (no divide-by-zero).
 
@@ -159,11 +159,11 @@ constraint is required.)
 > **plan** page uses the rolling window. `week_bounds()` is still used by the chart.
 
 ### 5.5 Activity log
-- Whenever `SubjectService.set_completion` changes completed minutes, it writes a
-  `ProgressEvent(chapter_id, occurred_on=when or today, minutes_delta=Δ)`. A no-op
+- Whenever `SubjectService.set_completed_minutes` changes completed minutes, it writes
+  a `ProgressEvent(chapter_id, occurred_on=when or today, minutes_delta=Δ)`. A no-op
   change writes nothing; reducing completion writes a negative delta.
-- `set_completion(chapter_id, completion, when=None)` — `when` is injectable so
-  tests are clock-independent; the route passes nothing (defaults to today).
+- `set_completed_minutes(chapter_id, completed_minutes, when=None)` — `when` is
+  injectable so tests are clock-independent; the route passes nothing (defaults to today).
 
 ### 5.6 Dashboard aggregation
 `DashboardService.build(today)` returns a `DashboardView` with:
@@ -201,7 +201,8 @@ subject-tracker/
 └── tracker/                   The Flask package.
     ├── __init__.py             App factory create_app(config): engine+session lifecycle
     │                           (g.session per request), load_logged_in_user → g.user,
-    │                           `hours` Jinja filter, current_user template global,
+    │                           `hm` Jinja filter, current_user template global,
+    │                           Cache-Control: no-store on HTML responses (after_request),
     │                           registers all 6 blueprints.
     ├── config.py               Config (DATABASE_URL, SECRET_KEY, MAX_CONTENT_LENGTH) +
     │                           TestConfig (in-memory :memory: DB). Env-var driven.
@@ -209,7 +210,7 @@ subject-tracker/
     │                           session; create_all(); remove(). sqlite check_same_thread=False.
     ├── models.py               ORM models User/Subject/Module/Chapter/PlanAssignment/
     │                           ProgressEvent + .progress/.is_done helpers; cascades; enums.
-    ├── domain.py               PURE math: clamp_completion, minutes_to_hours,
+    ├── domain.py               PURE math: clamp_completed, minutes_to_hours, format_hm,
     │                           completed_minutes, percent, is_done, week_bounds,
     │                           Progress dataclass, chapter_progress, sum_progress. No Flask/DB.
     ├── auth.py                 Session auth: login_user/logout_user/current_user,
@@ -228,7 +229,7 @@ subject-tracker/
     ├── services/               BUSINESS LOGIC; own the commit boundary.
     │   ├── auth_service.py          AuthService(session): register/authenticate/get/list_users.
     │   ├── subject_service.py       SubjectService(session, user_id): subject/module/chapter
-    │   │                            CRUD, set_completion (logs activity), roll-ups via models.
+    │   │                            CRUD, set_completed_minutes (logs activity), roll-ups.
     │   ├── planning_service.py      PlanningService(session, user_id): assign (ownership-guarded),
     │   │                            today_plan/week_plan → DayPlan/WeekPlan with PlannedItem.
     │   ├── dashboard_service.py     DashboardService(session, user_id): build(today)→DashboardView
@@ -278,9 +279,9 @@ in isolation). New features add a repo+service without touching existing ones.
 | POST | `/subjects/<id>/modules` | login | Add module. |
 | POST | `/modules/<id>/delete` | login | Delete module. |
 | POST | `/modules/<id>/chapters` | login | Add chapter (title, kind, duration_minutes). |
-| POST | `/chapters/<id>/completion` | login | Update completion 0–10 (logs activity). |
+| POST | `/chapters/<id>/completion` | login | Set completed minutes (`completed_hours`+`completed_minutes`); logs activity dated today. Returns JSON for AJAX (`X-Requested-With`), else redirects. |
 | POST | `/chapters/<id>/delete` | login | Delete chapter. |
-| POST | `/chapters/<id>/plan` | login | Assign chapter to a date (`planned_date`). |
+| POST | `/chapters/<id>/plan` | login | Assign chapter to `planned_date` (**required, today-or-future only**). |
 | GET | `/today` | login | Today's plan + carried-over backlog. |
 | GET | `/week` | login | Rolling 7-day plan (today..today+6) grouped by day + overdue backlog. |
 | GET | `/admin` | admin | Overview of every user's progress (403 for non-admins). |
@@ -413,7 +414,7 @@ this is **plain HTTP** — fine on trusted Wi-Fi, not for the public internet
 
 ### 12.3 Run the tests
 ```bash
-pytest                # all 77 tests
+pytest                # run the full suite
 pytest -q             # quiet
 pytest tests/test_backup.py -v      # one file, verbose
 ```
@@ -459,8 +460,10 @@ For durable data across schema changes, add Alembic (future work).
 
 ## 14. Milestones (git history — replay in order)
 
-Each milestone is a single commit:
+Each line is one commit (`git log --oneline --reverse`). The first block is the
+original build; the rest are incremental features and fixes.
 
+**Original build**
 1. **scaffold** — structure, docs, deps.
 2. **core-domain** — models, DB, domain math, subject/module/chapter CRUD + roll-ups.
 3. **planning** — daily/weekly plans + backlog rollover.
@@ -469,9 +472,27 @@ Each milestone is a single commit:
 6. **dashboard** — ProgressEvent activity log + charts dashboard + animations.
 7. **auth** — multi-user accounts, per-user isolation, admin overview.
 8. **serve** — configurable HOST/PORT/DEBUG for LAN access.
-9. **backlog-display tests** — verify backlog carry-over shows the chapter heading.
+9. **backlog-display tests** — backlog carry-over shows the chapter heading.
 10. **theme** — flashy dark theme with persisted toggle.
 11. **backup** — JSON export/import.
+
+**Docs & subsequent changes**
+12. **docs** — regeneration-grade BUILD_CONTEXT + TEST_PLAN + run guide.
+13. **docs** — add AGENTS.md entry point.
+14. **fix** — completion save returns to originating page; visible/clickable date picker.
+15. **week** — rolling 7-day plan grouped by day (today..today+6).
+16. **plan** — one date per chapter (re-planning moves it; no duplicates).
+17. **maintenance** — `scripts/squash_duplicate_plans.py` for legacy duplicates.
+18. **display** — durations shown as "Xh Ym" (not decimal hours).
+19. **completion** — capture completed time as hours+minutes with inline validation
+    (replaces the 0–10 proxy; stores `completed_minutes`).
+20. **plan-page completion** — read-only on the subject page; Done checkbox + blur
+    auto-save (AJAX) on the plan pages; activity dated today.
+21. **ui** — move backlog section above the plan on today & week pages.
+22. **fix** — `Cache-Control: no-store` on HTML pages (no stale views).
+23. **fix** — plan button no longer assigns without an explicit date.
+24. **rule** — a chapter cannot be planned for a past date (route-only guard).
+25. **test** — confirm JSON import accepts past plan dates.
 
 ## 15. Decisions & assumptions log (why, not just what)
 
@@ -488,6 +509,20 @@ Each milestone is a single commit:
   so a chapter never appears in more than one day/section. Enforced in the service
   + importer (they are the only writers) rather than a DB constraint, to avoid a
   migration and keep old-backup imports working.
+- **Planning requires an explicit date; no back-dating** — both enforced in the
+  **plan route only**. An empty date is rejected (never defaults to today); a past
+  date is rejected. The service and backup importer still accept any date, so
+  historical/backlog data and restores are unaffected. (Real bugs fixed here: the
+  empty→today default, and the native picker implicitly submitting on Enter — the
+  Plan button is disabled until a date is chosen and Enter no longer submits.)
+- **Completion editing lives on the plan pages, not the subject page**: you plan a
+  chapter, then set its completed time on `/today` or `/week`. The subject page is
+  read-only. A "Done" checkbox completes instantly; h/m inputs auto-save on blur via
+  AJAX (in-place, no reload). Completing always dates activity to **today**.
+- **HTML is never cached** (`Cache-Control: no-store`, app-factory `after_request`)
+  so data changes always show immediately; static assets keep normal caching.
+- **Legacy cleanup via a script, not a migration**: `squash_duplicate_plans` collapses
+  pre-rule duplicate assignments (keeps the most recent), run on demand.
 - **Durations shown as "Xh Ym"** (not decimal hours): one formatter `format_hm`
   drives every text surface (filter, `Progress.*_hm`, JS count-up, chart tooltips).
   Decimal hours kept only for chart axes.
