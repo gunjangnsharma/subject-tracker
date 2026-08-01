@@ -204,7 +204,8 @@ subject-tracker/
 ├── docs/
 │   ├── BUILD_CONTEXT.md        This file.
 │   ├── TEST_PLAN.md            Per-test purpose + strategy.
-│   └── DEPLOY_ORACLE.md        Step-by-step Oracle Cloud Always-Free hosting guide.
+│   ├── DEPLOY_ORACLE.md        Step-by-step Oracle Cloud Always-Free hosting guide.
+│   └── DEPLOY_RASPBERRY_PI.md  Step-by-step Raspberry Pi (home LAN) hosting guide.
 └── tracker/                   The Flask package.
     ├── __init__.py             App factory create_app(config=None): resolves config from
     │                           SUBJECT_TRACKER_ENV when None, enforces the prod-secret rule,
@@ -450,12 +451,16 @@ SUBJECT_TRACKER_ENV=prod SUBJECT_TRACKER_SECRET=... \
 Prod refuses the default secret. For public exposure put it behind a reverse
 proxy that terminates **HTTPS**, then set `SUBJECT_TRACKER_HTTPS=1`.
 
-**Free hosting recipe:** [docs/DEPLOY_ORACLE.md](DEPLOY_ORACLE.md) walks through an
-Oracle Cloud Always-Free VM end to end (open ports at the cloud **and** host
-firewall, venv, systemd `waitress-serve wsgi:app`, nginx reverse proxy, certbot
-HTTPS, admin creation, backups). Ready-made files live in `deploy/`
-(`subject-tracker.service`, `nginx-subject-tracker.conf`, `subject-tracker.env.example`).
-SQLite lives on the VM's persistent boot volume, so no database change is needed.
+**Hosting recipes** (both use systemd + waitress; ready-made files in `deploy/`):
+- [docs/DEPLOY_ORACLE.md](DEPLOY_ORACLE.md) — Oracle Cloud Always-Free VM end to end
+  (open ports at the cloud **and** host firewall, venv, systemd `waitress-serve
+  wsgi:app`, nginx reverse proxy, certbot HTTPS, admin, backups).
+- [docs/DEPLOY_RASPBERRY_PI.md](DEPLOY_RASPBERRY_PI.md) — a Raspberry Pi (3B+ or newer)
+  on the home LAN (simpler: no cloud firewall; bind waitress to `0.0.0.0:5000`),
+  with an optional internet-exposure section (router forward + DDNS + HTTPS).
+
+Either way SQLite persists on local storage (VM boot volume / SD card), so no
+database change is needed.
 
 ### 12.4 Run the tests
 ```bash

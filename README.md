@@ -48,9 +48,9 @@ secret**. Or point any WSGI server at `wsgi:app`
 (`waitress-serve --listen=127.0.0.1:5000 wsgi:app`, or `gunicorn wsgi:app` on Linux).
 For public access put it behind an HTTPS reverse proxy and set `SUBJECT_TRACKER_HTTPS=1`.
 
-**Hosting it for free:** see [docs/DEPLOY_ORACLE.md](docs/DEPLOY_ORACLE.md) — a full
-step-by-step for an Oracle Cloud Always-Free VM (systemd + nginx + HTTPS, SQLite
-data persisted), with ready-made files in [`deploy/`](deploy).
+**Hosting guides** (systemd + waitress; ready-made files in [`deploy/`](deploy)):
+- [docs/DEPLOY_ORACLE.md](docs/DEPLOY_ORACLE.md) — free Oracle Cloud Always-Free VM (+ nginx + HTTPS).
+- [docs/DEPLOY_RASPBERRY_PI.md](docs/DEPLOY_RASPBERRY_PI.md) — a Raspberry Pi (3B+ or newer) on your home LAN.
 
 ## Tests
 
