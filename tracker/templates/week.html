@@ -1,17 +1,30 @@
 {% extends "base.html" %}
 {% import "_macros.html" as ui %}
-{% block title %}This Week &middot; Subject Tracker{% endblock %}
+{% block title %}Week Plan &middot; Subject Tracker{% endblock %}
 
 {% block content %}
-<h1>This Week <span class="muted">{{ plan.start }} → {{ plan.end }}</span></h1>
+<h1 class="reveal">Week plan <span class="muted">{{ plan.start }} → {{ plan.end }}</span></h1>
+<p class="muted reveal">The next 7 days, one section per day. New days roll in as time passes.</p>
 
-<section>
-  <h2>This week's plan</h2>
-  {{ ui.plan_list(plan.planned) }}
-</section>
+{% for day in plan.days %}
+  <section class="day-group reveal {{ 'is-today' if day.is_today else '' }}" style="--i: {{ loop.index0 }}">
+    <div class="day-head">
+      <h2>
+        {{ day.weekday }} <span class="muted">{{ day.day.strftime('%d %b') }}</span>
+        {% if day.is_today %}<span class="today-badge">Today</span>{% endif %}
+      </h2>
+      <span class="day-count muted">{{ day.count }} task{{ '' if day.count == 1 else 's' }}</span>
+    </div>
+    {% if day.items %}
+      {{ ui.plan_list(day.items) }}
+    {% else %}
+      <p class="day-empty muted">Nothing planned.</p>
+    {% endif %}
+  </section>
+{% endfor %}
 
-<section>
-  <h2>Weekly backlog <span class="muted">(unfinished from before this week)</span></h2>
+<section class="reveal">
+  <h2>⏴ Overdue backlog <span class="muted">(unfinished, planned before today)</span></h2>
   {{ ui.plan_list(plan.backlog, show_from=true) }}
 </section>
 {% endblock %}

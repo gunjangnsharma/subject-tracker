@@ -108,11 +108,20 @@ dataclass holding `total_minutes` + `completed_minutes`, with `remaining`,
 - **Today view** for date `T`:
   - *Today's plan* = assignments with `planned_date == T`.
   - *Backlog* = assignments with `planned_date < T` **and** chapter not done. Shown as "carried from <date>".
-- **Week view** (Mon–Sun containing today):
-  - *This week's plan* = assignments with `planned_date ∈ [week_start, week_end]`.
-  - *Weekly backlog* = assignments with `planned_date < week_start` **and** chapter not done.
+- **Week view — rolling 7-day window** (`PlanningService.rolling_plan(today)`):
+  - Seven **day-groups** in chronological order from `today` to `today+6`, each
+    holding the chapters planned for that exact day (empty days show "Nothing
+    planned"). The window **rolls**: as each real day passes, a new day appears at
+    the end, so you always see a full week ahead. `today` is highlighted.
+  - *Overdue backlog* = assignments with `planned_date < today` **and** chapter not
+    done (identical rule to the Today page's backlog).
+  - Items planned **beyond** `today+6` are not shown until they enter the window.
 - Because backlog is **computed on read**, finishing a chapter (`completion=10`)
   removes it from all backlogs automatically. Nothing is moved or deleted; **no cron**.
+
+> Note: the dashboard's "This week's activity" **chart** stays a fixed Mon–Sun
+> calendar week (retrospective activity via `domain.week_bounds`); only the `/week`
+> **plan** page uses the rolling window. `week_bounds()` is still used by the chart.
 
 ### 5.5 Activity log
 - Whenever `SubjectService.set_completion` changes completed minutes, it writes a
@@ -234,7 +243,7 @@ in isolation). New features add a repo+service without touching existing ones.
 | POST | `/chapters/<id>/delete` | login | Delete chapter. |
 | POST | `/chapters/<id>/plan` | login | Assign chapter to a date (`planned_date`). |
 | GET | `/today` | login | Today's plan + carried-over backlog. |
-| GET | `/week` | login | This week's plan + weekly backlog. |
+| GET | `/week` | login | Rolling 7-day plan (today..today+6) grouped by day + overdue backlog. |
 | GET | `/admin` | admin | Overview of every user's progress (403 for non-admins). |
 | GET | `/export` | login | Download the user's data as a JSON backup file. |
 | POST | `/import` | login | Upload a JSON backup; **adds** its subjects to the account. |

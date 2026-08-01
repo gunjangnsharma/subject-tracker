@@ -39,7 +39,7 @@ def today():
 
 @bp.get("/week")
 def week():
-    plan = _service().week_plan(date.today())
+    plan = _service().rolling_plan(date.today())
     return render_template("week.html", plan=plan)
 
 

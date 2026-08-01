@@ -58,20 +58,20 @@ def test_yesterday_complete_not_backlog(subjects, planning):  # P3
     assert plan.backlog == []
 
 
-def test_last_week_incomplete_is_weekly_backlog(subjects, planning):  # P4
+def test_past_incomplete_is_rolling_backlog(subjects, planning):  # P4
     ch = _make_chapter(subjects, completion=3)
     planning.assign(ch.id, LAST_WEEK)
-    plan = planning.week_plan(TODAY)
+    plan = planning.rolling_plan(TODAY)
     assert [i.chapter.id for i in plan.backlog] == [ch.id]
 
 
-def test_this_week_shows_in_week_plan_not_backlog(subjects, planning):  # P5
+def test_future_shows_in_its_day_not_backlog(subjects, planning):  # P5
     ch = _make_chapter(subjects, completion=2)
-    # Monday of this week
-    monday = TODAY - timedelta(days=TODAY.weekday())
-    planning.assign(ch.id, monday)
-    plan = planning.week_plan(TODAY)
-    assert [i.chapter.id for i in plan.planned] == [ch.id]
+    day3 = TODAY + timedelta(days=3)
+    planning.assign(ch.id, day3)
+    plan = planning.rolling_plan(TODAY)
+    assert [i.chapter.id for i in plan.days[3].items] == [ch.id]
+    assert plan.days[0].items == []
     assert plan.backlog == []
 
 
@@ -81,15 +81,18 @@ def test_finishing_backlog_removes_it(subjects, planning):  # P6
     planning.assign(ch.id, LAST_WEEK)
 
     assert planning.today_plan(TODAY).backlog        # present before
-    assert planning.week_plan(TODAY).backlog
+    assert planning.rolling_plan(TODAY).backlog
 
     subjects.set_completion(ch.id, 10)               # finish it
 
     assert planning.today_plan(TODAY).backlog == []  # gone from both
-    assert planning.week_plan(TODAY).backlog == []
+    assert planning.rolling_plan(TODAY).backlog == []
 
 
-def test_week_bounds_range(planning):  # P7
-    plan = planning.week_plan(TODAY)
-    assert plan.start == date(2026, 8, 3)   # Monday
-    assert plan.end == date(2026, 8, 9)     # Sunday
+def test_rolling_window_is_today_to_today_plus_6(planning):  # P7
+    plan = planning.rolling_plan(TODAY)   # TODAY = 2026-08-05
+    assert plan.start == TODAY                       # window starts today
+    assert plan.end == TODAY + timedelta(days=6)     # ends today + 6
+    assert len(plan.days) == 7
+    assert plan.days[0].day == TODAY and plan.days[0].is_today
+    assert [d.day for d in plan.days] == [TODAY + timedelta(days=i) for i in range(7)]

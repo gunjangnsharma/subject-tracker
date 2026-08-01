@@ -1,7 +1,7 @@
 # Subject Tracker — Test Plan
 
 Every test and what it verifies. Built alongside the app. Run from
-`subject-tracker/` with `pytest` (78 tests). Suite runs against a fresh in-memory
+`subject-tracker/` with `pytest` (89 tests). Suite runs against a fresh in-memory
 SQLite database per test, so tests are isolated, deterministic and never touch the
 dev DB.
 
@@ -67,10 +67,10 @@ Last updated: 2026-08-01
 | `test_assigned_today_shows_in_plan` | A chapter planned today is in today's plan, not backlog. |
 | `test_yesterday_incomplete_is_backlog` | Incomplete + planned yesterday → today's backlog, keeps original date. |
 | `test_yesterday_complete_not_backlog` | Completed (10) + planned yesterday → not in backlog. |
-| `test_last_week_incomplete_is_weekly_backlog` | Incomplete + planned last week → weekly backlog. |
-| `test_this_week_shows_in_week_plan_not_backlog` | Planned earlier this week → in week plan, not weekly backlog. |
+| `test_past_incomplete_is_rolling_backlog` | Incomplete + planned in the past → rolling plan's overdue backlog. |
+| `test_future_shows_in_its_day_not_backlog` | Planned today+3 → appears in that day-group, not backlog. |
 | `test_finishing_backlog_removes_it` | Setting completion 10 removes it from both today & week backlog. |
-| `test_week_bounds_range` | `week_plan` returns Monday..Sunday for the week. |
+| `test_rolling_window_is_today_to_today_plus_6` | Window is 7 days starting today; day 0 is today. |
 
 ### 3.5 `test_backlog_display.py` — backlog carry-over shows the heading (6)
 | Test | Checks |
@@ -79,7 +79,7 @@ Last updated: 2026-08-01
 | `test_past_day_incomplete_goes_to_today_backlog` | Service: title present in today's backlog. |
 | `test_completed_item_not_in_either_backlog` | Finished item excluded from both backlogs. |
 | `test_today_page_shows_backlog_heading` | Rendered `/today` contains the chapter heading + "carried from <date>". |
-| `test_week_page_shows_backlog_heading` | Rendered `/week` contains the heading under Weekly backlog + carried-from date. |
+| `test_week_page_shows_backlog_heading` | Rendered `/week` shows the heading under Overdue backlog + carried-from date. |
 | `test_finished_item_absent_from_today_page` | Rendered `/today` shows no "carried from" when the item is finished. |
 
 ### 3.6 `test_dashboard.py` — dashboard aggregation (7)
@@ -144,6 +144,21 @@ Last updated: 2026-08-01
 | `test_import_route_adds_data` | `POST /import` with a file adds the data and redirects. |
 | `test_import_route_rejects_bad_json` | Uploading invalid JSON shows "not valid JSON". |
 
+### 3.11 `test_week_plan.py` — rolling 7-day week plan (11)
+| Test | Checks |
+|------|--------|
+| `test_window_is_seven_days_from_today` | 7 day-groups, start=today, end=today+6, chronological; day 0 is today (weekday label correct). |
+| `test_window_rolls_with_today` | A different `today` shifts the whole window; still 7 days from that day. |
+| `test_today_item_in_first_group` | A chapter planned today lands in `days[0]`, others empty. |
+| `test_future_item_in_its_own_day` | Planned today+4 → in `days[4]` only; not in backlog. |
+| `test_beyond_window_is_not_shown` | Planned today+8 → in no day-group and not backlog (it's future). |
+| `test_multiple_items_same_day_grouped_and_sorted` | Two chapters same day → both in that day, sorted (subject/module/title). |
+| `test_overdue_incomplete_in_backlog_not_days` | Past + unfinished → overdue backlog, not a day-group. |
+| `test_overdue_complete_excluded` | Past + finished → excluded from backlog. |
+| `test_week_page_shows_seven_day_sections` | Rendered `/week` has 7 day sections + each day's date label + Today badge + Overdue backlog. |
+| `test_week_page_task_under_its_day` | A chapter planned today+3 shows on the page under that day's heading. |
+| `test_week_page_empty_day_shows_nothing_planned` | Days with no tasks render "Nothing planned.". |
+
 ## 4. Manual QA checklist (before a release)
 
 - [ ] Register an account; land on the dashboard.
@@ -151,6 +166,7 @@ Last updated: 2026-08-01
 - [ ] Set completion to 5; module/subject bars + dashboard reflect partial progress.
 - [ ] Plan the chapter for today; it appears on `/today`.
 - [ ] Plan a chapter for a past day/week; it appears as backlog with "carried from <date>".
+- [ ] Open `/week`: 7 day sections from today, today highlighted, tasks under the right day, empty days say "Nothing planned".
 - [ ] Set completion to 10; it disappears from `/today` and `/week` backlog.
 - [ ] Toggle the theme (🌙/☀️); it persists across pages and charts recolor.
 - [ ] Export JSON; register a second account; import the file → data reappears.

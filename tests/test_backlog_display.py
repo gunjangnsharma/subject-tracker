@@ -42,7 +42,7 @@ def test_past_week_incomplete_goes_to_weekly_backlog(subjects, planning):
     ch = _chapter(subjects, "Fourier Transforms", completion=4)  # 40% done
     planning.assign(ch.id, LAST_WEEK)
 
-    week = planning.week_plan(TODAY)
+    week = planning.rolling_plan(TODAY)
     titles = [item.title for item in week.backlog]
     assert "Fourier Transforms" in titles                 # carried over
     assert week.backlog[0].planned_date == LAST_WEEK       # keeps original date
@@ -62,7 +62,7 @@ def test_completed_item_not_in_either_backlog(subjects, planning):
     ch = _chapter(subjects, "Finished Topic", completion=10)  # done
     planning.assign(ch.id, LAST_WEEK)
     assert planning.today_plan(TODAY).backlog == []
-    assert planning.week_plan(TODAY).backlog == []
+    assert planning.rolling_plan(TODAY).backlog == []
 
 
 # --- Rendered page level (real clock, via HTTP) -------------------------
@@ -103,7 +103,7 @@ def test_week_page_shows_backlog_heading(auth_client):
 
     page = auth_client.get("/week").get_data(as_text=True)
     assert "Eigen Chapter" in page
-    assert "Weekly backlog" in page
+    assert "Overdue backlog" in page
     assert f"carried from {last_week.isoformat()}" in page
 
 
