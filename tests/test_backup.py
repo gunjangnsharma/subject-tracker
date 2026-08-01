@@ -137,6 +137,27 @@ def test_import_v1_backup_converts_completion_to_minutes(session, user_id):
     assert out["subjects"][0]["modules"][0]["chapters"][0]["completed_minutes"] == 60
 
 
+def test_import_accepts_past_plan_dates(session, user_id):
+    # The no-back-dating rule is a UI/route guard; import restores historical
+    # (past-dated) assignments verbatim.
+    from datetime import date, timedelta
+
+    past = (date.today() - timedelta(days=30)).isoformat()
+    payload = {
+        "format": BACKUP_FORMAT, "version": BACKUP_VERSION,
+        "subjects": [{"name": "S", "modules": [
+            {"name": "M", "chapters": [
+                {"title": "C", "kind": "video", "duration_minutes": 60,
+                 "completed_minutes": 0, "plan_dates": [past], "activity": []}
+            ]}
+        ]}],
+    }
+    summary = BackupService(session, user_id).import_data(payload)
+    assert summary.plans == 1
+    out = BackupService(session, user_id).export_data()
+    assert out["subjects"][0]["modules"][0]["chapters"][0]["plan_dates"] == [past]
+
+
 def test_import_is_additive(session, user_id):
     subjects = SubjectService(session, user_id)
     subjects.add_subject("Existing")

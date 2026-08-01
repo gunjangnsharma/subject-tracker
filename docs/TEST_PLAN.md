@@ -1,7 +1,7 @@
 # Subject Tracker — Test Plan
 
 Every test and what it verifies. Built alongside the app. Run from
-`subject-tracker/` with `pytest` (110 tests). Suite runs against a fresh in-memory
+`subject-tracker/` with `pytest` (111 tests). Suite runs against a fresh in-memory
 SQLite database per test, so tests are isolated, deterministic and never touch the
 dev DB.
 
@@ -135,7 +135,7 @@ Last updated: 2026-08-01
 | `test_theme_toggle_present_on_every_page` | Base layout ships the toggle button + the no-flash theme script. |
 | `test_completion_update_returns_to_originating_page` | Saving completion from `/today` or `/week` redirects back there (via Referer), not to subject detail. |
 
-### 3.10 `test_backup.py` — JSON export / import (16)
+### 3.10 `test_backup.py` — JSON export / import (17)
 | Test | Checks |
 |------|--------|
 | `test_export_structure` | Envelope (format/version/user) + nested subjects with `plan_dates` and `activity`. |
