@@ -243,3 +243,46 @@ def test_subject_page_planned_date_survives_a_reschedule(auth_client):
     detail = auth_client.get(f"/subjects/{subject_id}").get_data(as_text=True)
     assert f'value="{second.isoformat()}"' in detail
     assert f'value="{first.isoformat()}"' not in detail
+
+
+def _make_module(client):
+    client.post("/subjects", data={"name": "S"}, follow_redirects=True)
+    page = client.get("/subjects").get_data(as_text=True)
+    subject_id = int(page.split("/subjects/")[1].split('"')[0])
+    client.post(f"/subjects/{subject_id}/modules", data={"name": "M"},
+                follow_redirects=True)
+    detail = client.get(f"/subjects/{subject_id}").get_data(as_text=True)
+    module_id = int(detail.split("/modules/")[1].split("/")[0])
+    return subject_id, module_id
+
+
+def test_add_chapter_form_offers_every_kind(auth_client):
+    """The dropdown is generated from CHAPTER_KINDS, so quiz appears too."""
+    subject_id, _ = _make_module(auth_client)
+    html = auth_client.get(f"/subjects/{subject_id}").get_data(as_text=True)
+    for kind in ("video", "text", "quiz"):
+        assert f'<option value="{kind}">' in html
+
+
+def test_quiz_chapter_renders_a_quiz_pill(auth_client):
+    """The pill class drives the red styling (.pill-quiz in style.css)."""
+    subject_id, module_id = _make_module(auth_client)
+    auth_client.post(f"/modules/{module_id}/chapters",
+                     data={"title": "Unit test quiz", "kind": "quiz",
+                           "duration_minutes": "20"},
+                     follow_redirects=True)
+    html = auth_client.get(f"/subjects/{subject_id}").get_data(as_text=True)
+    assert 'class="pill pill-quiz"' in html
+    assert "Unit test quiz" in html
+
+
+def test_quiz_pill_has_red_styling_in_both_themes():
+    """A kind without a .pill-<kind> rule would render unstyled."""
+    from pathlib import Path
+
+    css = Path("tracker/static/style.css").read_text()
+    assert ".pill-quiz { background: var(--pill-quiz-bg)" in css
+    # Declared once for the light palette and once in the dark override, so the
+    # pill is readable in both themes (not just wherever it was first defined).
+    assert css.count("--pill-quiz-bg:") == 2
+    assert css.count("--pill-quiz-ink:") == 2

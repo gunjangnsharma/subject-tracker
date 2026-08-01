@@ -24,6 +24,7 @@
   --done-bg: #f0fdf4;
   --pill-video-bg: #e0ecff;  --pill-video-ink: #1e40af;
   --pill-text-bg: #fef3c7;   --pill-text-ink: #92400e;
+  --pill-quiz-bg: #fee2e2;   --pill-quiz-ink: #b91c1c;
   --carried-bg: #fee2e2;     --carried-ink: #991b1b;
   --role-bg: #ede9fe;        --role-ink: #6d28d9;
   --flash-error-bg: #fee2e2; --flash-error-ink: #991b1b;
@@ -68,6 +69,7 @@
   --done-bg: rgba(41,227,154,0.10);
   --pill-video-bg: rgba(91,140,255,0.18);  --pill-video-ink: #a8c1ff;
   --pill-text-bg: rgba(245,178,59,0.16);   --pill-text-ink: #f6ce85;
+  --pill-quiz-bg: rgba(255,91,110,0.18);   --pill-quiz-ink: #ff9aa6;
   --carried-bg: rgba(255,91,110,0.16);     --carried-ink: #ff9aa6;
   --role-bg: rgba(176,131,255,0.20);       --role-ink: #cbb1ff;
   --flash-error-bg: rgba(255,91,110,0.15); --flash-error-ink: #ff9aa6;
@@ -307,6 +309,7 @@ tr.just-moved { animation: just-moved-flash 0.6s ease-out; }
 }
 .pill-video { background: var(--pill-video-bg); color: var(--pill-video-ink); }
 .pill-text { background: var(--pill-text-bg); color: var(--pill-text-ink); }
+.pill-quiz { background: var(--pill-quiz-bg); color: var(--pill-quiz-ink); }
 
 /* Plan lists */
 .plan-items { list-style: none; padding: 0; display: grid; gap: 0.5rem; }

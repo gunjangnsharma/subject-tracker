@@ -100,3 +100,25 @@ def test_invalid_inputs_raise(service):
     m = service.add_module(subject.id, "M")
     with pytest.raises(ValueError):
         service.add_chapter(m.id, "bad kind", "audio", 10)
+
+
+def test_quiz_is_a_valid_chapter_kind(service):
+    """'quiz' joins video/text as a first-class chapter kind."""
+    from tracker.models import CHAPTER_KINDS
+
+    assert CHAPTER_KINDS == ("video", "text", "quiz")
+    subject = service.add_subject("S")
+    module = service.add_module(subject.id, "M")
+    chapter = service.add_chapter(module.id, "Chapter 1 quiz", "quiz", 20)
+    assert chapter.kind == "quiz"
+    # Still counts toward roll-ups like any other chapter.
+    assert service.get_module(module.id).progress.total_minutes == 20
+
+
+def test_unknown_kinds_are_still_rejected(service):
+    """Widening the enum must not turn it into a free-text field."""
+    subject = service.add_subject("S")
+    module = service.add_module(subject.id, "M")
+    for bad in ("audio", "Quiz", "QUIZ", "", "pdf"):
+        with pytest.raises(ValueError):
+            service.add_chapter(module.id, "x", bad, 10)

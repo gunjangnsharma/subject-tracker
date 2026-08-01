@@ -51,6 +51,12 @@ def create_app(config: type[Config] | Config | None = None) -> Flask:
     def _inject_user() -> dict:
         return {"current_user": current_user()}
 
+    # The chapter kinds, so the "add chapter" dropdown is generated from the
+    # single source of truth (models.CHAPTER_KINDS) instead of hardcoded options.
+    from tracker.models import CHAPTER_KINDS
+
+    app.jinja_env.globals["chapter_kinds"] = CHAPTER_KINDS
+
     # Never cache rendered HTML pages (they change with the user's data), so the
     # browser can't show a stale view. Static assets keep their normal caching.
     @app.after_request

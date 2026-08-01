@@ -24,7 +24,7 @@ tool or agent to generate a valid file. Import is at `POST /import`; export at
           "chapters": [                         // optional (default []); ORDER MATTERS
             {
               "title": "Vectors",               // REQUIRED, non-empty string
-              "kind": "video",                  // "video" | "text" (default "video")
+              "kind": "video",                  // "video" | "text" | "quiz" (default "video")
               "duration_minutes": 130,          // REQUIRED int >= 0  (2h 10m -> 130)
               "completed_minutes": 90,          // REQUIRED (v2) int >= 0, clamped to duration
               "plan_dates": ["2026-08-03"],     // 0 or 1 date; extras dropped
@@ -54,7 +54,7 @@ tool or agent to generate a valid file. Import is at `POST /import`; export at
 | `module.name` | string | yes | non-empty |
 | `module.chapters` | array | no | default `[]`. **Array order = display order** (see §3) |
 | `chapter.title` | string | yes | non-empty |
-| `chapter.kind` | string | no | `"video"` or `"text"`; default `"video"` |
+| `chapter.kind` | string | no | `"video"`, `"text"` or `"quiz"`; default `"video"` |
 | `chapter.duration_minutes` | integer | yes | `>= 0`. **Minutes, not "Xh Ym"** (130 = 2h 10m) |
 | `chapter.completed_minutes` | integer | yes (v2) | `>= 0`; clamped to `0..duration_minutes` |
 | `chapter.plan_dates` | array<string> | no | `"YYYY-MM-DD"`; **only the first is used** |
@@ -84,7 +84,7 @@ tool or agent to generate a valid file. Import is at `POST /import`; export at
   the roll-ups. The importer never fabricates activity from `completed_minutes`.
 - **Rejected:** non-object root, wrong `format`, `version` other than 1/2, `subjects`
   not a list, empty required strings, non-integer numbers, `kind` other than
-  video/text, malformed dates.
+  video/text/quiz, malformed dates.
 
 ## 4. Versions
 
@@ -97,7 +97,7 @@ tool or agent to generate a valid file. Import is at `POST /import`; export at
 > Generate a JSON file for the "subject-tracker-backup" import format (version 2).
 > Root object: `"format": "subject-tracker-backup"`, `"version": 2`, and `"subjects"`
 > — an array of `{ "name", "modules": [ { "name", "chapters": [ … ] } ] }`.
-> Each chapter is `{ "title", "kind": "video"|"text", "duration_minutes": <int minutes>,
+> Each chapter is `{ "title", "kind": "video"|"text"|"quiz", "duration_minutes": <int minutes>,
 > "completed_minutes": <int minutes, 0..duration>, "plan_dates": ["YYYY-MM-DD"] (0 or 1),
 > "activity": [ { "occurred_on": "YYYY-MM-DD", "minutes_delta": <number> } ] }`.
 > Rules: all times are whole minutes (2h 10m = 130), never "Xh Ym"; `completed_minutes`

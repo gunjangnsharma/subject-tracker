@@ -61,8 +61,11 @@
           action="{{ url_for('subjects.create_chapter', module_id=module.id) }}">
       <input type="text" name="title" placeholder="Chapter title" required>
       <select name="kind">
-        <option value="video">video</option>
-        <option value="text">text</option>
+        {# Options come from models.CHAPTER_KINDS, so adding a kind needs no
+           template change. Injected as a Jinja global by the app factory. #}
+        {% for kind in chapter_kinds %}
+          <option value="{{ kind }}">{{ kind }}</option>
+        {% endfor %}
       </select>
       <input type="number" name="duration_minutes" min="0" placeholder="minutes" required>
       <button type="submit">Add chapter</button>

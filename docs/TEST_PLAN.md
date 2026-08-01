@@ -1,7 +1,7 @@
 # Subject Tracker — Test Plan
 
 Every test and what it verifies. Built alongside the app. Run from
-`subject-tracker/` with `pytest` (207 tests). Suite runs against a fresh in-memory
+`subject-tracker/` with `pytest` (212 tests). Suite runs against a fresh in-memory
 SQLite database per test, so tests are isolated, deterministic and never touch the
 dev DB.
 
@@ -45,7 +45,7 @@ subject + module holding four chapters (`First`..`Fourth`) in a known order.
 | `test_week_bounds_monday_to_sunday` | A Wednesday → (that week's Monday, Sunday). |
 | `test_progress_rollup_addition` | `sum_progress` adds totals/completed/remaining and computes percent. |
 
-### 3.2 `test_subjects.py` — subject/module/chapter service + roll-ups (9)
+### 3.2 `test_subjects.py` — subject/module/chapter service + roll-ups (11)
 | Test | Checks |
 |------|--------|
 | `test_add_and_list_subject` | Added subject appears in the user's list. |
@@ -57,6 +57,8 @@ subject + module holding four chapters (`First`..`Fourth`) in a known order.
 | `test_delete_subject_cascades` | Deleting a subject removes its modules and chapters. |
 | `test_delete_chapter_recalculates` | Deleting a chapter recomputes the module total. |
 | `test_invalid_inputs_raise` | Blank subject name and unknown chapter kind raise `ValueError`. |
+| `test_quiz_is_a_valid_chapter_kind` | `quiz` is accepted alongside video/text and counts toward roll-ups. |
+| `test_unknown_kinds_are_still_rejected` | `audio`/`Quiz`/`QUIZ`/`""`/`pdf` still raise — widening the enum didn't make it free text. |
 
 ### 3.3 `test_activity.py` — study-activity logging (4)
 | Test | Checks |
@@ -122,7 +124,7 @@ subject + module holding four chapters (`First`..`Fourth`) in a known order.
 | `test_regular_user_forbidden_from_admin` | Non-admin hitting `/admin` → 403. |
 | `test_admin_link_hidden_for_regular_user` | The Admin nav link is absent for a regular user. |
 
-### 3.9 `test_routes.py` — route smoke + auth gating (19)
+### 3.9 `test_routes.py` — route smoke + auth gating (22)
 | Test | Checks |
 |------|--------|
 | `test_dashboard_ok` | `GET /` → 200 when logged in. |
@@ -144,6 +146,9 @@ subject + module holding four chapters (`First`..`Fourth`) in a known order.
 | `test_html_pages_are_not_cached` | Dynamic HTML sends `Cache-Control: no-store`; static assets don't. |
 | `test_subject_page_shows_the_planned_date_not_today` | **Regression:** a chapter planned for tomorrow shows that date (pre-filled input + "Mon 03 Aug" text) and never today's; unplanned chapters say "Not planned". |
 | `test_subject_page_planned_date_survives_a_reschedule` | Re-planning shows the new date, not the previous one. |
+| `test_add_chapter_form_offers_every_kind` | The dropdown is generated from `CHAPTER_KINDS`, so it offers video/text/quiz. |
+| `test_quiz_chapter_renders_a_quiz_pill` | A quiz chapter renders `class="pill pill-quiz"` (drives the red styling). |
+| `test_quiz_pill_has_red_styling_in_both_themes` | `.pill-quiz` exists and its bg/ink vars are declared in the light palette **and** the dark override. |
 
 ### 3.10 `test_backup.py` — JSON export / import (17)
 | Test | Checks |
@@ -345,6 +350,8 @@ rewriting study history.
 
 - [ ] Register an account; land on the dashboard.
 - [ ] Add a subject, module, and a 90-min video chapter; detail header shows `1.5h`.
+- [ ] Add a **quiz** chapter; its Type pill is red on the subject, `/today` and `/week`
+      pages, and readable in both light and dark themes.
 - [ ] Subject page shows completion **read-only** (no inputs); use **Plan** to add it to a day.
 - [ ] On the subject page, press ▲/▼ on a chapter → it swaps with its neighbour and the
       order survives a reload. The first row's ▲ and last row's ▼ are greyed out.

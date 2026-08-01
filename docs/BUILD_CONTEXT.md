@@ -82,8 +82,18 @@ User 1───* Subject 1───* Module 1───* Chapter 1───* Plan
 Modules → Chapters → (PlanAssignments + ProgressEvents). Enforced both in ORM
 relationships and with `ondelete="CASCADE"` on the FKs.
 
-**Enums:** `CHAPTER_KINDS = ("video", "text")`, `USER_ROLES = ("user", "admin")`
+**Enums:** `CHAPTER_KINDS = ("video", "text", "quiz")`, `USER_ROLES = ("user", "admin")`
 (defined in `models.py`).
+
+> **Adding a chapter kind needs no migration.** The `Enum` column is created
+> *without* a CHECK constraint (SQLAlchemy 2.0's `create_constraint=False`
+> default), so an existing database accepts a new value straight away — verified
+> against a live DB. Validation lives in the services (`SubjectService.add_chapter`,
+> `BackupService`), which check membership of the tuple, so unknown kinds are still
+> rejected. To add one: extend `CHAPTER_KINDS`, add a `.pill-<kind>` rule plus
+> `--pill-<kind>-bg/-ink` in **both** palettes in `style.css`. The add-chapter
+> dropdown is generated from the tuple (Jinja global `chapter_kinds`), so no
+> template change is needed.
 
 ## 5. Core business rules
 
@@ -334,7 +344,7 @@ subject-tracker/
     ├── templates/              Jinja2.
     │   ├── base.html                Layout: theme <head> script, nav (auth-aware + theme toggle),
     │   │                            flash messages, Chart.js + app.js includes, {% block scripts %}.
-    │   ├── _macros.html             progress_bar(p), kind_pill(kind), completion_display,
+    │   ├── _macros.html             progress_bar(p), kind_pill(kind) [.pill-<kind>], completion_display,
     │   │                            completion_control, reorder_control(chapter, first, last),
     │   │                            plan_control(chapter), plan_list(items, show_from).
     │   ├── dashboard.html           Hero doughnut, stat cards, subject+week charts (data via JSON).
@@ -441,7 +451,7 @@ format bump was needed for the reorder feature). **Full blueprint + JSON Schema:
   "subjects": [
     {"name": "...", "modules": [
       {"name": "...", "chapters": [
-        {"title": "...", "kind": "video|text", "duration_minutes": 120,
+        {"title": "...", "kind": "video|text|quiz", "duration_minutes": 120,
          "completed_minutes": 90, "plan_dates": ["YYYY-MM-DD"],   // plan_dates: 0 or 1
          "activity": [{"occurred_on": "YYYY-MM-DD", "minutes_delta": 120.0}]}
       ]}
@@ -761,6 +771,8 @@ original build; the rest are incremental features and fixes.
     that read as "today").
 31. **fix/feature** — studied time is the net sum of deltas (Done/undone toggling
     no longer inflates the dashboard) + an Unplan button on the plan pages.
+32. **kind** — third chapter kind `quiz` (red pill in both themes); the
+    add-chapter dropdown is generated from `CHAPTER_KINDS`.
 
 ## 15. Decisions & assumptions log (why, not just what)
 

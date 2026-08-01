@@ -15,7 +15,12 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from tracker import domain
 from tracker.database import Base
 
-CHAPTER_KINDS = ("video", "text")
+#: Chapter types. Adding one needs no database migration: the Enum column is
+#: created WITHOUT a CHECK constraint (SQLAlchemy 2.0's `create_constraint=False`
+#: default), so an existing database accepts a new value immediately. Validation
+#: lives in the services, which check membership of this tuple. Each kind needs a
+#: matching `.pill-<kind>` rule in style.css.
+CHAPTER_KINDS = ("video", "text", "quiz")
 USER_ROLES = ("user", "admin")
 
 
