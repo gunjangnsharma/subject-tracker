@@ -93,6 +93,13 @@ BUILD_CONTEXT §11).
   `completion_control` macro (Done checkbox + h/m inputs that AJAX-save on blur).
   The subject page is read-only (`completion_display`). Completing always dates the
   activity to `today`, never the planned day.
+- **"Studied" time is the NET sum of a day's `minutes_delta`** (`domain.net_studied_minutes`),
+  floored at 0 — never sum only the positive deltas. Doing that let Done/undone
+  toggling add the chapter's duration on every click. The `ProgressEvent` log keeps
+  both directions; the *aggregation* nets them. See BUILD_CONTEXT §5.5.
+- **Unplanning removes the assignment only** — never the completed minutes or the
+  activity events. "Planned by mistake" ≠ "didn't do the work"; conflating them
+  rewrites study history.
 - **Chapter order sorts by `(position, id)`, never `position` alone.** Rows written
   before the column existed all share position `0`; the `id` tiebreak keeps them in
   insertion order. A move **renumbers the whole module** rather than swapping two

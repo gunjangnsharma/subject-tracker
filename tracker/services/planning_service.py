@@ -120,6 +120,34 @@ class PlanningService:
     def assignments_in_range(self, start: date, end: date) -> list[PlanAssignment]:
         return self._plans.in_range(start, end)
 
+    def unassign(self, chapter_id: int) -> bool:
+        """Remove a chapter from the plan entirely (planned by mistake).
+
+        Deletes the chapter's plan assignment, so it disappears from the day
+        view, the week view and every backlog. Returns True if something was
+        removed, False if the chapter was not planned — asking to unplan an
+        unplanned chapter is a harmless no-op, not an error.
+
+        **Progress and activity are untouched.** Only the "do this on this day"
+        link is removed; any completed minutes and the study events that recorded
+        them stay exactly as they were, so unplanning never rewrites history.
+        Dashboard *counts* (planned/done/backlog, and the week's planned-minutes
+        bars) drop this chapter immediately because they are derived from the
+        assignments at read time.
+
+        Raises ValueError for an unknown chapter, including another user's (the
+        repository reports those as missing).
+        """
+        if self._chapters.get(chapter_id) is None:
+            raise ValueError("Chapter not found.")
+        existing = self._plans.for_chapter(chapter_id)
+        if not existing:
+            return False
+        for assignment in existing:
+            self._plans.delete(assignment)
+        self._session.commit()
+        return True
+
     def today_plan(self, today: date) -> DayPlan:
         planned = [_to_item(a) for a in self._plans.on_date(today)]
         backlog = [

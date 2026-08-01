@@ -112,6 +112,17 @@
             {% if show_from %}<span class="carried">carried from {{ item.planned_date }}</span>{% endif %}
             <span class="muted item-progress">{{ p.completed_hm }} / {{ p.total_hm }} ({{ p.percent }}%)</span>
             {{ completion_control(item.chapter) }}
+            {# Planned by mistake? Drop it from the plan. Progress and study
+               history are kept — only the "do this on this day" link goes.
+               The accessible name deliberately avoids repeating the chapter
+               title: the row already names it, and a duplicate would also break
+               "title appears exactly once" assertions in the page tests. #}
+            <form class="unplan-form" method="post"
+                  action="{{ url_for('planning.unassign', chapter_id=item.chapter.id) }}">
+              <button type="submit" class="unplan-btn"
+                      title="Remove this chapter from the plan (keeps your progress)"
+                      aria-label="Remove from plan">Unplan</button>
+            </form>
           </div>
         </li>
       {% endfor %}

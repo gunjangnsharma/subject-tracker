@@ -62,3 +62,25 @@ def assign(chapter_id: int):
     except ValueError as exc:
         flash(str(exc), "error")
     return redirect(back)
+
+
+@bp.post("/chapters/<int:chapter_id>/unplan")
+def unassign(chapter_id: int):
+    """Remove a chapter from the plan (e.g. planned by mistake).
+
+    Only the plan link goes; completed minutes and study history are untouched.
+    """
+    back = request.referrer or url_for("planning.today")
+    try:
+        removed = _service().unassign(chapter_id)
+    except ValueError as exc:
+        flash(str(exc), "error")
+        return redirect(back)
+
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return {"removed": removed, "chapter_id": chapter_id}
+    flash(
+        "Removed from the plan." if removed else "That chapter wasn't planned.",
+        "info" if removed else "error",
+    )
+    return redirect(back)

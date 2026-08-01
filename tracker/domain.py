@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, timedelta
+from typing import Iterable
 
 def clamp_completed(duration_minutes: int, completed_minutes: int) -> int:
     """Clamp completed minutes into the valid 0..duration range.
@@ -59,6 +60,30 @@ def week_bounds(day: date) -> tuple[date, date]:
     monday = day - timedelta(days=day.weekday())
     sunday = monday + timedelta(days=6)
     return monday, sunday
+
+
+def net_studied_minutes(deltas: "Iterable[float]") -> float:
+    """Minutes actually studied, from a day's signed progress deltas.
+
+    Sums **all** deltas — advancing *and* reducing — so completion changes cancel
+    out. Ticking a chapter Done then un-ticking it records ``+60, -60`` and nets
+    to ``0``, which is the truth: no time was studied.
+
+    (Counting only the positive deltas inflated the total on every toggle: five
+    Done/undone cycles on a 60-minute chapter reported 300 minutes studied while
+    the chapter sat at 0% complete.)
+
+    Clamped at ``0``: a day whose corrections outweigh its progress shows no
+    study rather than a negative bar, which no chart can render sensibly. The
+    reduced time is still reflected in the chapter's completion and roll-ups —
+    this only governs the "studied on this day" figure.
+
+    Netting is **per day**, so a correction only offsets progress recorded on the
+    same day. Undoing today what you completed yesterday leaves yesterday's total
+    intact (you did study then) and floors today at 0; the undo is visible in the
+    chapter's completion dropping, not by rewriting a past day.
+    """
+    return max(0.0, float(sum(deltas)))
 
 
 # Directions accepted by ``swap_index``/the reorder UI.

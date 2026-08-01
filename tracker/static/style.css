@@ -263,6 +263,24 @@ tr.just-moved { animation: just-moved-flash 0.6s ease-out; }
 
 .completion-form, .plan-form { display: flex; align-items: center; gap: 0.35rem; }
 
+/* "Unplan" — remove a chapter from the plan without touching its progress. */
+.unplan-form { display: inline-flex; }
+.unplan-btn {
+  padding: 0.2rem 0.5rem;
+  font-size: 0.75rem;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.unplan-btn:hover {
+  color: var(--on-accent);
+  background: var(--danger);
+  border-color: var(--danger);
+}
+
 /* Plan cell: the date the chapter is planned for, above the (re)schedule form. */
 .plan-cell { display: flex; flex-direction: column; gap: 0.2rem; }
 .plan-state { font-size: 0.82rem; }

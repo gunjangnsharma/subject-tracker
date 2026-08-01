@@ -111,12 +111,17 @@ class DashboardService:
         events = self._activity.between(start, end)
         assignments = self._planning.assignments_in_range(start, end)
 
-        studied_by_day: dict[date, float] = {}
+        # Collect every delta per day — positive and negative — then net them, so
+        # reducing a chapter's completion cancels the progress it undoes. Filtering
+        # to positive deltas here made repeated Done/undone toggling inflate the
+        # totals without bound. See domain.net_studied_minutes.
+        deltas_by_day: dict[date, list[float]] = {}
         for ev in events:
-            if ev.minutes_delta > 0:  # count study, not corrections
-                studied_by_day[ev.occurred_on] = (
-                    studied_by_day.get(ev.occurred_on, 0.0) + ev.minutes_delta
-                )
+            deltas_by_day.setdefault(ev.occurred_on, []).append(ev.minutes_delta)
+        studied_by_day = {
+            day: domain.net_studied_minutes(deltas) for day, deltas in deltas_by_day.items()
+        }
+
         planned_by_day: dict[date, float] = {}
         for a in assignments:
             planned_by_day[a.planned_date] = (
@@ -137,4 +142,5 @@ class DashboardService:
 
     @staticmethod
     def _studied_minutes(events) -> float:
-        return sum(ev.minutes_delta for ev in events if ev.minutes_delta > 0)
+        """Net minutes studied: advances minus reductions (never below zero)."""
+        return domain.net_studied_minutes(ev.minutes_delta for ev in events)

@@ -160,6 +160,14 @@ constraint is required.)
   input, so a chapter planned for another day looked like it was planned for
   today.)* The no-back-dating `min` is only applied when the field is empty or
   already future-dated — otherwise an overdue item's own date would be invalid.
+- **Removing a chapter from the plan** (`PlanningService.unassign`, `POST
+  /chapters/<id>/unplan`): an **Unplan** button on every plan row — today's plan,
+  the week's day-groups and both backlogs — deletes the assignment. Use it when a
+  chapter was planned by mistake. Only the "do this on this day" link goes:
+  completed minutes and study history are untouched, so unplanning never rewrites
+  what you actually did. Dashboard counts (planned/done/backlog and the week's
+  planned-minutes bars) drop it immediately because they derive from assignments
+  at read time. Unplanning an unplanned chapter is a no-op, not an error.
 - Because backlog is **computed on read**, finishing a chapter (`completion=10`)
   removes it from all backlogs automatically. Nothing is moved or deleted; **no cron**.
 
@@ -171,6 +179,16 @@ constraint is required.)
 - Whenever `SubjectService.set_completed_minutes` changes completed minutes, it writes
   a `ProgressEvent(chapter_id, occurred_on=when or today, minutes_delta=Δ)`. A no-op
   change writes nothing; reducing completion writes a negative delta.
+- **"Studied" is the NET sum of a day's deltas** (`domain.net_studied_minutes`),
+  floored at 0 — never just the positive ones. *(Bug fixed here: summing only
+  positive deltas meant ticking a chapter Done and un-ticking it added its full
+  duration every time. Five toggles of a 60-minute chapter reported 300 minutes
+  studied while the chapter sat at 0% complete.)* The event log itself keeps both
+  directions as a full audit trail; only the aggregation nets them.
+- Netting is **per day**: a correction offsets progress recorded on the *same*
+  day. Undoing today what you finished yesterday leaves yesterday's total intact
+  and floors today at 0 — the undo shows up as the chapter's completion dropping,
+  not by rewriting a past day.
 - `set_completed_minutes(chapter_id, completed_minutes, when=None)` — `when` is
   injectable so tests are clock-independent; the route passes nothing (defaults to today).
 
@@ -178,9 +196,10 @@ constraint is required.)
 `DashboardService.build(today)` returns a `DashboardView` with:
 - **overall** — `Progress` summed across the user's subjects (doughnut chart).
 - **today** — `TodayStats(planned_count, done_count, backlog_count, studied_minutes)`.
-  `studied_minutes` = sum of **positive** `minutes_delta` on `today`.
+  `studied_minutes` = **net** `minutes_delta` on `today` (see §5.5), floored at 0.
 - **week** — `WeekStats(start, end, days[7])`; each `DayActivity(day, label, studied_minutes, planned_minutes)`
-  where *studied* = positive deltas that day, *planned* = Σ durations of chapters assigned that day.
+  where *studied* = **net** deltas that day (floored at 0), *planned* = Σ durations of
+  chapters assigned that day.
 
 ### 5.7 What decides "today" and "the week"
 - **Server-side & automatic.** Every request calls Python `date.today()` (the
@@ -276,6 +295,7 @@ subject-tracker/
     ├── domain.py               PURE math: clamp_completed, minutes_to_hours, format_hm,
     │                           completed_minutes, percent, is_done, week_bounds,
     │                           swap_index + MOVE_UP/MOVE_DOWN (reorder arithmetic),
+    │                           net_studied_minutes (signed deltas -> studied time),
     │                           Progress dataclass, chapter_progress, sum_progress. No Flask/DB.
     ├── auth.py                 Session auth: login_user/logout_user/current_user,
     │                           load_logged_in_user (before_request), login_required,
@@ -297,7 +317,7 @@ subject-tracker/
     │   ├── subject_service.py       SubjectService(session, user_id): subject/module/chapter
     │   │                            CRUD, set_completed_minutes (logs activity), roll-ups,
     │   │                            move_chapter (reorder within a module), list_module_chapters.
-    │   ├── planning_service.py      PlanningService(session, user_id): assign (ownership-guarded),
+    │   ├── planning_service.py      PlanningService(session, user_id): assign/unassign (ownership-guarded),
     │   │                            today_plan/week_plan → DayPlan/WeekPlan with PlannedItem.
     │   ├── dashboard_service.py     DashboardService(session, user_id): build(today)→DashboardView
     │   │                            (SubjectSummary, TodayStats, WeekStats, DayActivity).
@@ -352,6 +372,7 @@ in isolation). New features add a repo+service without touching existing ones.
 | POST | `/chapters/<id>/delete` | login | Delete chapter. |
 | POST | `/chapters/<id>/move` | login | Reorder: swap with the neighbour above/below inside the same module (`direction=up\|down`). Returns JSON `{moved, module_id, chapter_ids}` for AJAX, else redirects. Off-the-end → `moved: false`; bad direction → 400. |
 | POST | `/chapters/<id>/plan` | login | Assign chapter to `planned_date` (**required, today-or-future only**). |
+| POST | `/chapters/<id>/unplan` | login | Remove the chapter from the plan (keeps progress + activity). JSON for AJAX, else redirect back. |
 | GET | `/today` | login | Today's plan + carried-over backlog. |
 | GET | `/week` | login | Rolling 7-day plan (today..today+6) grouped by day + overdue backlog. |
 | GET | `/admin` | admin | Overview of every user's progress (403 for non-admins). |
@@ -736,6 +757,10 @@ original build; the rest are incremental features and fixes.
 29. **perf** — SQLite tuned for slow storage (WAL fixes writes blocking the whole
     UI; `synchronous=NORMAL` kills the per-commit fsync) + indexes on every FK and
     date column, backfilled into existing databases by `schema.ensure_indexes`.
+30. **fix** — subject page shows each chapter's planned date (was an empty input
+    that read as "today").
+31. **fix/feature** — studied time is the net sum of deltas (Done/undone toggling
+    no longer inflates the dashboard) + an Unplan button on the plan pages.
 
 ## 15. Decisions & assumptions log (why, not just what)
 
@@ -831,6 +856,16 @@ original build; the rest are incremental features and fixes.
   waitress already uses 4 threads; the serialization was a lock on the database
   *file*, one layer below Python, so threading it differently would not have
   helped. WAL is the correct form of that idea.
+- **Studied time nets the signed deltas, per day, floored at zero**: the activity
+  log is an audit trail that records both advances and reductions, so the
+  aggregation — not the log — is where they must cancel. Counting only positive
+  deltas let Done/undone toggling inflate the dashboard without bound. Flooring at
+  zero keeps charts renderable; per-day (rather than per-week) netting means a
+  correction can't retroactively erase a day you genuinely studied.
+- **Unplan removes the assignment only**, never the progress or the activity
+  events. "I planned this by mistake" and "I did not do this work" are different
+  claims; conflating them would silently rewrite study history. Dashboard counts
+  follow for free because they are derived from assignments at read time.
 - **No DB migrations**: dev data disposable; recreate the file on schema change.
   Alembic is the documented upgrade path.
 - **App isolated under `subject-tracker/`** with its own git repo so it doesn't

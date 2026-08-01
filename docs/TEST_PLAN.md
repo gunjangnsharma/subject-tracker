@@ -1,7 +1,7 @@
 # Subject Tracker — Test Plan
 
 Every test and what it verifies. Built alongside the app. Run from
-`subject-tracker/` with `pytest` (182 tests). Suite runs against a fresh in-memory
+`subject-tracker/` with `pytest` (207 tests). Suite runs against a fresh in-memory
 SQLite database per test, so tests are isolated, deterministic and never touch the
 dev DB.
 
@@ -294,6 +294,53 @@ tests for "deleting anything hangs the whole UI".
 | `test_concurrent_writes_queue_instead_of_failing` | 8 threads writing concurrently all succeed (busy_timeout), no "database is locked". |
 | `test_page_loads_while_a_delete_is_in_flight` | End-to-end: listing subjects completes while another thread deletes a 20-chapter subject. |
 
+### 3.16 `test_studied_time_and_unplan.py` — net study accounting + unplanning (25)
+
+Two related concerns: studied time must net out (repeated Done/undone toggling
+used to inflate it), and a chapter planned by mistake must be removable without
+rewriting study history.
+
+**Pure domain rule (4)**
+| Test | Checks |
+|------|--------|
+| `test_net_studied_minutes_cancels_out_a_toggle` | `+60, -60` -> 0; five such pairs -> 0. |
+| `test_net_studied_minutes_keeps_real_progress` | `[45] -> 45`, `[30,15] -> 45`, `[60,-20] -> 40`. |
+| `test_net_studied_minutes_never_negative` | `[-60] -> 0`, `[20,-50] -> 0` (no negative bars). |
+| `test_net_studied_minutes_of_nothing_is_zero` | Empty day -> 0. |
+
+**The reported bug (7)**
+| Test | Checks |
+|------|--------|
+| `test_toggling_done_does_not_inflate_studied_today` | **Regression:** 5 Done/undone cycles on a 60-min chapter -> 0 studied today (was 300). |
+| `test_toggling_done_does_not_inflate_the_week_chart` | Same for the week's per-day bar. |
+| `test_ending_on_done_counts_once_however_many_toggles` | Toggling then leaving it Done counts exactly 60, not a multiple. |
+| `test_reducing_completion_reduces_studied_time` | 60 then corrected to 20 -> 20 studied, not 60. |
+| `test_activity_log_still_records_both_directions` | The log keeps `[-60, +60]`; only the aggregation nets them. |
+| `test_undoing_yesterdays_work_does_not_make_today_negative` | Netting is per day: yesterday keeps its 60, today floors to 0, completion drops to 0. |
+| `test_completion_route_toggling_does_not_inflate_the_dashboard` | End-to-end through the Done checkbox's endpoint: no 120/180/240 on the dashboard. |
+
+**Unplanning: service (8)**
+| Test | Checks |
+|------|--------|
+| `test_unassign_removes_the_plan` | Returns True; chapter gone from plan and backlog. |
+| `test_unassign_keeps_progress_and_activity` | Completion (45m) and its activity event survive. |
+| `test_unassign_an_unplanned_chapter_is_a_noop` | Returns False, no error. |
+| `test_unassign_unknown_chapter_raises` | Unknown id -> `ValueError`. |
+| `test_cannot_unassign_another_users_chapter` | Foreign chapter raises; the owner's plan is untouched. |
+| `test_unassign_removes_it_from_the_backlog` | An overdue mistake clears from both backlogs. |
+| `test_unassign_updates_dashboard_counts` | `planned_count` 1->0 and the day's `planned_minutes` 60->0. |
+| `test_unassign_does_not_change_studied_time` | Studied minutes stay after unplanning. |
+
+**Unplanning: route + UI (6)**
+| Test | Checks |
+|------|--------|
+| `test_today_and_week_pages_offer_an_unplan_button` | Both pages render an `/unplan` form for a planned chapter. |
+| `test_unplan_route_removes_it_from_both_pages` | POST -> 302, then absent from `/today` and `/week`. |
+| `test_unplan_route_keeps_the_chapter_itself` | Still on the subject page, now "Not planned". |
+| `test_unplan_route_ajax_returns_json` | AJAX -> `{"removed": true, "chapter_id": N}`. |
+| `test_unplan_route_requires_login` | Logged out -> 302. |
+| `test_unplan_route_flashes_for_an_unknown_chapter` | Unknown id -> flashes "Chapter not found". |
+
 ## 4. Manual QA checklist (before a release)
 
 - [ ] Register an account; land on the dashboard.
@@ -311,6 +358,11 @@ tests for "deleting anything hangs the whole UI".
 - [ ] Plan a chapter for a past day/week; it appears as backlog with "carried from <date>".
 - [ ] Open `/week`: 7 day sections from today, today highlighted, tasks under the right day, empty days say "Nothing planned".
 - [ ] Set completion to 10; it disappears from `/today` and `/week` backlog.
+- [ ] Tick **Done** then untick it several times → "Studied today" and the week chart
+      stay at 0 (they must not grow by the chapter's duration each time).
+- [ ] Press **Unplan** on a plan row → it leaves `/today` and `/week`, the dashboard's
+      planned/backlog counts drop, but the chapter and its completed time remain on
+      the subject page.
 - [ ] Toggle the theme (🌙/☀️); it persists across pages and charts recolor.
 - [ ] Export JSON; register a second account; import the file → data reappears.
 - [ ] Log in as an admin; `/admin` lists all users; a regular user gets 403.
