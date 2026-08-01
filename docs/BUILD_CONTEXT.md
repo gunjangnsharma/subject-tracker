@@ -127,6 +127,11 @@ dataclass holding `total_minutes` + `completed_minutes`, with `remaining`,
 
 ### 5.4 Planning & backlog rollover — derived from dates, no scheduler
 
+**No back-dating.** A chapter can only be planned for **today or a future**
+date. The plan route rejects a past date (flash error); the date input's
+`min` is set to today client-side. (The *service* still accepts any date, so
+backup import and historical backlog data are unaffected.)
+
 **One date per chapter.** A chapter can be planned on **at most one** date, so it
 never appears twice (across the day view, the week view, or any backlog).
 `PlanningService.assign` is an **upsert**: it deletes any existing assignment for

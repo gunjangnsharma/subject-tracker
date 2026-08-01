@@ -144,6 +144,26 @@ def test_plan_with_a_date_assigns(auth_client):
     assert page.count("plan-item") >= 1        # now it's planned for today
 
 
+def test_plan_rejects_past_date(auth_client):
+    from datetime import date, timedelta
+    _make_chapter(auth_client)
+    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    resp = auth_client.post("/chapters/1/plan", data={"planned_date": yesterday})
+    assert resp.status_code == 302
+    followed = auth_client.get("/today").get_data(as_text=True)
+    assert "past date" in followed                 # flashed error
+    # Nothing got planned.
+    assert auth_client.get("/today").get_data(as_text=True).count("plan-item") == 0
+
+
+def test_plan_allows_future_date(auth_client):
+    from datetime import date, timedelta
+    _make_chapter(auth_client)
+    future = (date.today() + timedelta(days=5)).isoformat()
+    auth_client.post("/chapters/1/plan", data={"planned_date": future}, follow_redirects=True)
+    assert auth_client.get("/week").get_data(as_text=True).count("plan-item") >= 1
+
+
 def test_html_pages_are_not_cached(auth_client):
     # Dynamic HTML must not be cached, so the browser never shows a stale view.
     resp = auth_client.get("/today")

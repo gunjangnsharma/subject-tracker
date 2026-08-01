@@ -9,6 +9,7 @@ from datetime import date, timedelta
 
 import pytest
 
+from tracker.services.auth_service import AuthService
 from tracker.services.planning_service import PlanningService
 from tracker.services.subject_service import SubjectService
 
@@ -66,29 +67,33 @@ def test_completed_item_not_in_either_backlog(subjects, planning):
 
 
 # --- Rendered page level (real clock, via HTTP) -------------------------
-def _seed_via_http(client, title, planned_date, completed=None):
-    # Assumes a clean DB per test, so ids start at 1.
-    client.post("/subjects", data={"name": "Subj"}, follow_redirects=True)
-    client.post("/subjects/1/modules", data={"name": "Mod"}, follow_redirects=True)
-    client.post(
+def _seed(auth_client, app, title, planned_date, completed=None):
+    # Chapter + completion via the routes (assumes a clean DB, ids start at 1).
+    auth_client.post("/subjects", data={"name": "Subj"}, follow_redirects=True)
+    auth_client.post("/subjects/1/modules", data={"name": "Mod"}, follow_redirects=True)
+    auth_client.post(
         "/modules/1/chapters",
         data={"title": title, "kind": "video", "duration_minutes": "120"},
         follow_redirects=True,
     )
     if completed is not None:
-        client.post(
+        auth_client.post(
             "/chapters/1/completion",
             data={"completed_hours": str(completed // 60), "completed_minutes": str(completed % 60)},
             follow_redirects=True,
         )
-    client.post("/chapters/1/plan", data={"planned_date": planned_date.isoformat()},
-                follow_redirects=True)
+    # Plan the (possibly past) date via the SERVICE — the route forbids back-dating,
+    # but past-dated backlog is legitimate historical data.
+    s = app.database.Session()
+    uid = AuthService(s).authenticate("tester", "secret123").id
+    PlanningService(s, uid).assign(1, planned_date)
+    s.commit()
+    app.database.remove()
 
 
-def test_today_page_shows_backlog_heading(auth_client):
-    today = date.today()
-    yesterday = today - timedelta(days=1)
-    _seed_via_http(auth_client, "Backprop Chapter", yesterday, completed=60)
+def test_today_page_shows_backlog_heading(auth_client, app):
+    yesterday = date.today() - timedelta(days=1)
+    _seed(auth_client, app, "Backprop Chapter", yesterday, completed=60)
 
     page = auth_client.get("/today").get_data(as_text=True)
     assert "Backprop Chapter" in page                 # heading is shown
@@ -96,10 +101,9 @@ def test_today_page_shows_backlog_heading(auth_client):
     assert f"carried from {yesterday.isoformat()}" in page  # marked as carried over
 
 
-def test_week_page_shows_backlog_heading(auth_client):
-    today = date.today()
-    last_week = today - timedelta(days=8)
-    _seed_via_http(auth_client, "Eigen Chapter", last_week, completed=36)
+def test_week_page_shows_backlog_heading(auth_client, app):
+    last_week = date.today() - timedelta(days=8)
+    _seed(auth_client, app, "Eigen Chapter", last_week, completed=36)
 
     page = auth_client.get("/week").get_data(as_text=True)
     assert "Eigen Chapter" in page
@@ -107,10 +111,9 @@ def test_week_page_shows_backlog_heading(auth_client):
     assert f"carried from {last_week.isoformat()}" in page
 
 
-def test_finished_item_absent_from_today_page(auth_client):
-    today = date.today()
-    yesterday = today - timedelta(days=1)
-    _seed_via_http(auth_client, "Done Chapter", yesterday, completed=120)
+def test_finished_item_absent_from_today_page(auth_client, app):
+    yesterday = date.today() - timedelta(days=1)
+    _seed(auth_client, app, "Done Chapter", yesterday, completed=120)
 
     page = auth_client.get("/today").get_data(as_text=True)
     assert "carried from" not in page                 # nothing carried over

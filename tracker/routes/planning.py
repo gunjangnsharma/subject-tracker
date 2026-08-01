@@ -52,6 +52,10 @@ def assign(chapter_id: int):
         # A date is required — never assign to "today" by default.
         flash("Pick a date to plan this chapter.", "error")
         return redirect(back)
+    if planned_date < date.today():
+        # No back-dating: you can only plan for today or a future day.
+        flash("You can't plan a chapter for a past date.", "error")
+        return redirect(back)
     try:
         _service().assign(chapter_id, planned_date)
         flash(f"Chapter planned for {planned_date.isoformat()}.", "info")

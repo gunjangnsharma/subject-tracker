@@ -241,8 +241,11 @@
       const btn = form.querySelector('button[type="submit"]');
       if (!dateEl || !btn) return;
 
+      // No back-dating: the picker can't select earlier than today.
+      dateEl.min = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD, local
+
       function sync() {
-        btn.disabled = !dateEl.value;
+        btn.disabled = !dateEl.value || (dateEl.min && dateEl.value < dateEl.min);
       }
       sync();
       dateEl.addEventListener("input", sync);

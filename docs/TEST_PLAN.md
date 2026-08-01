@@ -1,7 +1,7 @@
 # Subject Tracker — Test Plan
 
 Every test and what it verifies. Built alongside the app. Run from
-`subject-tracker/` with `pytest` (108 tests). Suite runs against a fresh in-memory
+`subject-tracker/` with `pytest` (110 tests). Suite runs against a fresh in-memory
 SQLite database per test, so tests are isolated, deterministic and never touch the
 dev DB.
 
@@ -119,7 +119,7 @@ Last updated: 2026-08-01
 | `test_regular_user_forbidden_from_admin` | Non-admin hitting `/admin` → 403. |
 | `test_admin_link_hidden_for_regular_user` | The Admin nav link is absent for a regular user. |
 
-### 3.9 `test_routes.py` — route smoke + auth gating (14)
+### 3.9 `test_routes.py` — route smoke + auth gating (16)
 | Test | Checks |
 |------|--------|
 | `test_dashboard_ok` | `GET /` → 200 when logged in. |
