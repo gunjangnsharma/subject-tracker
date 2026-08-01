@@ -120,6 +120,56 @@
   }
   const hmTooltipPlugin = { callbacks: { label: hmTooltip } };
 
+  // --- Completed-time inputs: inline validation (no popups) ---------------
+  // Rules: minutes 0-59, and hours*60 + minutes must not exceed the chapter's
+  // total length. Errors render inline in a .field-error element; the form is
+  // `novalidate` so no native browser popups appear.
+  function setupCompletionForms() {
+    document.querySelectorAll(".completion-form").forEach(function (form) {
+      const hEl = form.querySelector('input[name="completed_hours"]');
+      const mEl = form.querySelector('input[name="completed_minutes"]');
+      const err = form.querySelector(".field-error");
+      if (!hEl || !mEl || !err) return;
+      const duration = parseInt(form.dataset.duration || "0", 10);
+
+      function setInvalid(el, on) {
+        el.classList.toggle("input-invalid", on);
+        el.setAttribute("aria-invalid", on ? "true" : "false");
+      }
+
+      function validate() {
+        const h = parseInt(hEl.value || "0", 10);
+        const m = parseInt(mEl.value || "0", 10);
+        let message = "";
+        let badH = false;
+        let badM = false;
+        if (isNaN(h) || isNaN(m) || h < 0 || m < 0) {
+          message = "Enter valid numbers";
+          badH = isNaN(h) || h < 0;
+          badM = isNaN(m) || m < 0;
+        } else if (m > 59) {
+          message = "Minutes must be 0–59";
+          badM = true;
+        } else if (h * 60 + m > duration) {
+          message = "Can't exceed " + formatHM(duration);
+          badH = true;
+          badM = true;
+        }
+        err.textContent = message;
+        err.hidden = !message;
+        setInvalid(hEl, badH);
+        setInvalid(mEl, badM);
+        return !message;
+      }
+
+      hEl.addEventListener("input", validate);
+      mEl.addEventListener("input", validate);
+      form.addEventListener("submit", function (e) {
+        if (!validate()) e.preventDefault();
+      });
+    });
+  }
+
   // --- Dashboard charts (Chart.js) ----------------------------------------
   let dashboardData = null; // remembered so we can redraw on theme change
   let charts = [];
@@ -224,6 +274,7 @@
     setupReveal();
     runCounts();
     setupDatePickers();
+    setupCompletionForms();
     const toggle = document.getElementById("themeToggle");
     if (toggle) toggle.addEventListener("click", toggleTheme);
   });

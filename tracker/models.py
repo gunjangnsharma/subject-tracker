@@ -90,8 +90,8 @@ class Chapter(Base):
     title: Mapped[str] = mapped_column(String(300), nullable=False)
     kind: Mapped[str] = mapped_column(Enum(*CHAPTER_KINDS, name="chapter_kind"), default="video")
     duration_minutes: Mapped[int] = mapped_column(Integer, default=0)
-    # 0..10 tenths complete; 10 == finished.
-    completion: Mapped[int] = mapped_column(Integer, default=0)
+    # Minutes of the chapter completed so far (0..duration_minutes).
+    completed_minutes: Mapped[int] = mapped_column(Integer, default=0)
 
     module: Mapped["Module"] = relationship(back_populates="chapters")
     assignments: Mapped[list["PlanAssignment"]] = relationship(
@@ -105,11 +105,20 @@ class Chapter(Base):
 
     @property
     def progress(self) -> domain.Progress:
-        return domain.chapter_progress(self.duration_minutes, self.completion)
+        return domain.chapter_progress(self.duration_minutes, self.completed_minutes)
 
     @property
     def is_done(self) -> bool:
-        return domain.is_done(self.completion)
+        return domain.is_done(self.duration_minutes, self.completed_minutes)
+
+    # Convenience for the h/m inputs in the UI.
+    @property
+    def completed_h(self) -> int:
+        return self.completed_minutes // 60
+
+    @property
+    def completed_m(self) -> int:
+        return self.completed_minutes % 60
 
 
 class PlanAssignment(Base):

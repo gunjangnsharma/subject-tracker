@@ -25,12 +25,12 @@ def planning(session, user_id):
     return PlanningService(session, user_id)
 
 
-def _chapter(subjects, title="C", completion=0, duration=60):
+def _chapter(subjects, title="C", completed=0, duration=60):
     subject = subjects.add_subject(f"S-{title}")
     module = subjects.add_module(subject.id, "M")
     ch = subjects.add_chapter(module.id, title, "video", duration)
-    if completion:
-        subjects.set_completion(ch.id, completion, when=TODAY - timedelta(days=10))
+    if completed:
+        subjects.set_completed_minutes(ch.id, completed, when=TODAY - timedelta(days=10))
     return ch
 
 
@@ -98,7 +98,7 @@ def test_multiple_items_same_day_grouped_and_sorted(subjects, planning):
 
 # --- Service: overdue backlog -------------------------------------------
 def test_overdue_incomplete_in_backlog_not_days(subjects, planning):
-    ch = _chapter(subjects, completion=4)   # unfinished
+    ch = _chapter(subjects, completed=24)   # unfinished (of 60)
     planning.assign(ch.id, TODAY - timedelta(days=3))
     plan = planning.rolling_plan(TODAY)
     assert [i.chapter.id for i in plan.backlog] == [ch.id]
@@ -106,7 +106,7 @@ def test_overdue_incomplete_in_backlog_not_days(subjects, planning):
 
 
 def test_overdue_complete_excluded(subjects, planning):
-    ch = _chapter(subjects, completion=10)  # finished
+    ch = _chapter(subjects, completed=60)   # finished (of 60)
     planning.assign(ch.id, TODAY - timedelta(days=3))
     plan = planning.rolling_plan(TODAY)
     assert plan.backlog == []

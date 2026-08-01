@@ -21,16 +21,16 @@ def test_format_hm():
 
 
 def test_progress_hm_strings():
-    p = domain.chapter_progress(130, 5)         # 130 min, 65 done, 65 left
+    p = domain.chapter_progress(130, 65)        # 130 min, 65 done, 65 left
     assert p.total_hm == "2h 10m"
     assert p.completed_hm == "1h 5m"
     assert p.remaining_hm == "1h 5m"
 
 
-def test_completed_minutes():  # D3, D4, D5
-    assert domain.completed_minutes(120, 5) == 60      # 2h video half done
-    assert domain.completed_minutes(60, 10) == 60      # fully done
-    assert domain.completed_minutes(60, 0) == 0        # not started
+def test_chapter_progress_from_minutes():  # D3, D4, D5
+    assert domain.chapter_progress(120, 60).completed_minutes == 60   # half done
+    assert domain.chapter_progress(60, 60).completed_minutes == 60    # fully done
+    assert domain.chapter_progress(60, 0).completed_minutes == 0      # not started
 
 
 def test_percent_safe_and_correct():  # D6, D7
@@ -38,15 +38,16 @@ def test_percent_safe_and_correct():  # D6, D7
     assert domain.percent(30, 120) == 25.0
 
 
-def test_completion_clamped():  # D8
-    assert domain.clamp_completion(11) == 10
-    assert domain.clamp_completion(-1) == 0
-    assert domain.clamp_completion(7) == 7
+def test_completed_clamped():  # D8
+    assert domain.clamp_completed(120, 200) == 120     # cannot exceed duration
+    assert domain.clamp_completed(120, -5) == 0        # cannot go negative
+    assert domain.clamp_completed(120, 45) == 45       # in range
 
 
 def test_is_done():
-    assert domain.is_done(10) is True
-    assert domain.is_done(9) is False
+    assert domain.is_done(120, 120) is True            # fully complete
+    assert domain.is_done(120, 119) is False
+    assert domain.is_done(120, 130) is True            # over-complete still done
 
 
 def test_week_bounds_monday_to_sunday():  # P7 (pure part)
@@ -57,8 +58,8 @@ def test_week_bounds_monday_to_sunday():  # P7 (pure part)
 
 
 def test_progress_rollup_addition():
-    a = domain.chapter_progress(60, 10)   # 60 done / 60
-    b = domain.chapter_progress(120, 5)   # 60 done / 120
+    a = domain.chapter_progress(60, 60)   # 60 done / 60
+    b = domain.chapter_progress(120, 60)  # 60 done / 120
     total = domain.sum_progress([a, b])
     assert total.total_minutes == 180
     assert total.completed_minutes == 120

@@ -85,16 +85,17 @@ class SubjectService:
     def get_chapter(self, chapter_id: int) -> Chapter | None:
         return self._chapters.get(chapter_id)
 
-    def set_completion(
-        self, chapter_id: int, completion: int, when: date | None = None
+    def set_completed_minutes(
+        self, chapter_id: int, completed_minutes: int, when: date | None = None
     ) -> Chapter:
         chapter = self._chapters.get(chapter_id)
         if chapter is None:
             raise ValueError("Chapter not found.")
         # Log the study activity: the change in completed minutes on `when`.
         before = chapter.progress.completed_minutes
-        # Clamp via domain rules so out-of-range input never persists.
-        self._chapters.set_completion(chapter, domain.clamp_completion(completion))
+        # Clamp to 0..duration so out-of-range input never persists.
+        clamped = domain.clamp_completed(chapter.duration_minutes, completed_minutes)
+        self._chapters.set_completed(chapter, clamped)
         delta = chapter.progress.completed_minutes - before
         if delta != 0:
             self._activity.add(chapter_id, when or date.today(), delta)

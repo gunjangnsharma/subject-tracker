@@ -38,8 +38,8 @@ def _chapter(subjects, subject_name="S", duration=120):
 def test_overall_progress_sums_subjects(subjects, dashboard):
     _, c1 = _chapter(subjects, "A", 60)
     _, c2 = _chapter(subjects, "B", 120)
-    subjects.set_completion(c1.id, 10, when=TODAY)  # 60 done
-    subjects.set_completion(c2.id, 5, when=TODAY)   # 60 done
+    subjects.set_completed_minutes(c1.id, 60, when=TODAY)  # 60 done (full)
+    subjects.set_completed_minutes(c2.id, 60, when=TODAY)  # 60 done (half)
 
     view = dashboard.build(TODAY)
     assert view.overall.total_minutes == 180
@@ -50,7 +50,7 @@ def test_overall_progress_sums_subjects(subjects, dashboard):
 def test_today_stats(subjects, planning, dashboard):
     _, ch = _chapter(subjects, "A", 120)
     planning.assign(ch.id, TODAY)              # planned today
-    subjects.set_completion(ch.id, 5, when=TODAY)  # studied 60 min today
+    subjects.set_completed_minutes(ch.id, 60, when=TODAY)  # studied 60 min today (of 120)
 
     # A separate backlog chapter, planned yesterday, still unfinished.
     _, back = _chapter(subjects, "B", 60)
@@ -66,7 +66,7 @@ def test_today_stats(subjects, planning, dashboard):
 def test_today_done_count(subjects, planning, dashboard):
     _, ch = _chapter(subjects, "A", 60)
     planning.assign(ch.id, TODAY)
-    subjects.set_completion(ch.id, 10, when=TODAY)
+    subjects.set_completed_minutes(ch.id, 60, when=TODAY)   # full (60 of 60)
     view = dashboard.build(TODAY)
     assert view.today.planned_count == 1
     assert view.today.done_count == 1
@@ -74,9 +74,9 @@ def test_today_done_count(subjects, planning, dashboard):
 
 def test_week_activity_per_day(subjects, dashboard):
     _, ch = _chapter(subjects, "A", 120)
-    # Studied 60 min on Monday, another 30 min on Wednesday(today).
-    subjects.set_completion(ch.id, 5, when=MONDAY)   # +60
-    subjects.set_completion(ch.id, 8, when=TODAY)    # +36 (8/10*120 - 60)
+    # Studied 60 min on Monday, another 36 min on Wednesday(today).
+    subjects.set_completed_minutes(ch.id, 60, when=MONDAY)   # +60
+    subjects.set_completed_minutes(ch.id, 96, when=TODAY)    # +36 (96 - 60)
 
     view = dashboard.build(TODAY)
     days = {d.label: d.studied_minutes for d in view.week.days}

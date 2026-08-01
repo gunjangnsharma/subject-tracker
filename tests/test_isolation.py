@@ -53,7 +53,7 @@ def test_cannot_edit_other_users_chapter(session, two_users):
     b = SubjectService(session, b_id)
     assert b.get_chapter(chapter.id) is None
     with pytest.raises(ValueError):
-        b.set_completion(chapter.id, 10)
+        b.set_completed_minutes(chapter.id, 30)
 
 
 def test_cannot_plan_other_users_chapter(session, two_users):
@@ -73,7 +73,7 @@ def test_dashboard_is_scoped(session, two_users):
     subject = a.add_subject("A")
     module = a.add_module(subject.id, "M")
     ch = a.add_chapter(module.id, "Ch", "video", 60)
-    a.set_completion(ch.id, 10, when=TODAY)
+    a.set_completed_minutes(ch.id, 60, when=TODAY)
 
     a_view = DashboardService(session, a_id).build(TODAY)
     b_view = DashboardService(session, b_id).build(TODAY)

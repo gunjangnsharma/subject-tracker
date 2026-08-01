@@ -26,7 +26,7 @@ def _populate(session, user_id):
     subject = subjects.add_subject("Machine Learning")
     module = subjects.add_module(subject.id, "Linear Algebra")
     ch = subjects.add_chapter(module.id, "Vectors", "video", 120)
-    subjects.set_completion(ch.id, 5, when=DAY)   # 60 min studied -> activity
+    subjects.set_completed_minutes(ch.id, 60, when=DAY)   # 60 min studied -> activity
     planning.assign(ch.id, PLAN_DAY)               # a plan date
     # a text chapter too
     subjects.add_chapter(module.id, "Notes", "text", 40)
@@ -50,7 +50,7 @@ def test_export_structure(session, user_id):
     assert chapter["title"] == "Vectors"
     assert chapter["kind"] == "video"
     assert chapter["duration_minutes"] == 120
-    assert chapter["completion"] == 5
+    assert chapter["completed_minutes"] == 60
     assert chapter["plan_dates"] == [PLAN_DAY.isoformat()]
     assert chapter["activity"] == [{"occurred_on": DAY.isoformat(), "minutes_delta": 60.0}]
 
@@ -91,7 +91,7 @@ def test_import_preserves_completion_without_extra_activity(session, user_id):
             {"name": "S", "modules": [
                 {"name": "M", "chapters": [
                     {"title": "C", "kind": "video", "duration_minutes": 100,
-                     "completion": 7, "plan_dates": [], "activity": []}
+                     "completed_minutes": 70, "plan_dates": [], "activity": []}
                 ]}
             ]}
         ],
@@ -99,7 +99,7 @@ def test_import_preserves_completion_without_extra_activity(session, user_id):
     BackupService(session, user_id).import_data(payload)
     out = BackupService(session, user_id).export_data()
     chapter = out["subjects"][0]["modules"][0]["chapters"][0]
-    assert chapter["completion"] == 7
+    assert chapter["completed_minutes"] == 70
     assert chapter["activity"] == []   # import must not fabricate activity
 
 
@@ -110,7 +110,7 @@ def test_import_keeps_one_plan_date_per_chapter(session, user_id):
         "format": BACKUP_FORMAT, "version": BACKUP_VERSION,
         "subjects": [{"name": "S", "modules": [
             {"name": "M", "chapters": [
-                {"title": "C", "kind": "video", "duration_minutes": 60, "completion": 0,
+                {"title": "C", "kind": "video", "duration_minutes": 60, "completed_minutes": 0,
                  "plan_dates": ["2026-08-03", "2026-08-05"], "activity": []}
             ]}
         ]}],
@@ -119,6 +119,22 @@ def test_import_keeps_one_plan_date_per_chapter(session, user_id):
     assert summary.plans == 1
     out = BackupService(session, user_id).export_data()
     assert out["subjects"][0]["modules"][0]["chapters"][0]["plan_dates"] == ["2026-08-03"]
+
+
+def test_import_v1_backup_converts_completion_to_minutes(session, user_id):
+    # Legacy v1 backups stored a 0..10 completion; import converts to minutes.
+    payload = {
+        "format": BACKUP_FORMAT, "version": 1,
+        "subjects": [{"name": "S", "modules": [
+            {"name": "M", "chapters": [
+                {"title": "C", "kind": "video", "duration_minutes": 120,
+                 "completion": 5, "plan_dates": [], "activity": []}   # 5/10 of 120 = 60
+            ]}
+        ]}],
+    }
+    BackupService(session, user_id).import_data(payload)
+    out = BackupService(session, user_id).export_data()
+    assert out["subjects"][0]["modules"][0]["chapters"][0]["completed_minutes"] == 60
 
 
 def test_import_is_additive(session, user_id):
@@ -150,7 +166,7 @@ def test_invalid_kind_rejected_and_rolls_back(session, user_id):
         "format": BACKUP_FORMAT, "version": BACKUP_VERSION,
         "subjects": [{"name": "S", "modules": [
             {"name": "M", "chapters": [
-                {"title": "C", "kind": "audio", "duration_minutes": 10, "completion": 0}
+                {"title": "C", "kind": "audio", "duration_minutes": 10, "completed_minutes": 0}
             ]}
         ]}],
     }
@@ -166,7 +182,7 @@ def test_bad_date_rejected(session, user_id):
         "subjects": [{"name": "S", "modules": [
             {"name": "M", "chapters": [
                 {"title": "C", "kind": "video", "duration_minutes": 10,
-                 "completion": 0, "plan_dates": ["not-a-date"]}
+                 "completed_minutes": 0, "plan_dates": ["not-a-date"]}
             ]}
         ]}],
     }

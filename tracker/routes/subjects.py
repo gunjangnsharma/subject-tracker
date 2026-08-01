@@ -91,6 +91,13 @@ def create_chapter(module_id: int):
     return redirect(url_for("subjects.subject_detail", subject_id=module.subject_id))
 
 
+def _int(value: str | None) -> int:
+    try:
+        return int(value or 0)
+    except ValueError:
+        return 0
+
+
 @bp.post("/chapters/<int:chapter_id>/completion")
 def update_completion(chapter_id: int):
     service = _service()
@@ -98,13 +105,13 @@ def update_completion(chapter_id: int):
     if chapter is None:
         abort(404)
     subject_id = chapter.module.subject_id
-    try:
-        value = int(request.form.get("completion", "0") or 0)
-    except ValueError:
-        value = 0
-    service.set_completion(chapter_id, value)
-    # Return to the page the form was submitted from (subject detail, today or week),
-    # falling back to the subject detail page.
+    # Completed time entered as hours + minutes. The client validates and shows
+    # inline errors; the server clamps to 0..duration as a safety net so bad
+    # values can never persist even if the client is bypassed.
+    hours = max(0, _int(request.form.get("completed_hours")))
+    minutes = max(0, _int(request.form.get("completed_minutes")))
+    service.set_completed_minutes(chapter_id, hours * 60 + minutes)
+    # Return to the page the form was submitted from (subject detail, today or week).
     return redirect(
         request.referrer or url_for("subjects.subject_detail", subject_id=subject_id)
     )

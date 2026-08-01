@@ -27,7 +27,7 @@
       <thead>
         <tr>
           <th>Chapter</th><th>Type</th><th>Length</th>
-          <th>Completion (0–10)</th><th>Plan</th><th></th>
+          <th>Completed</th><th>Plan</th><th></th>
         </tr>
       </thead>
       <tbody>
@@ -37,13 +37,8 @@
             <td>{{ ui.kind_pill(chapter.kind) }}</td>
             <td>{{ chapter.duration_minutes|hm }}</td>
             <td>
-              <form class="completion-form" method="post"
-                    action="{{ url_for('subjects.update_completion', chapter_id=chapter.id) }}">
-                <input type="number" name="completion" min="0" max="10"
-                       value="{{ chapter.completion }}">
-                <button type="submit">Save</button>
-                <span class="muted">{{ chapter.progress.completed_hm }} done</span>
-              </form>
+              {{ ui.completion_input(chapter) }}
+              <span class="muted">{{ chapter.progress.completed_hm }} of {{ chapter.duration_minutes|hm }}</span>
             </td>
             <td>
               <form class="plan-form" method="post"

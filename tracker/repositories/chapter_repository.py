@@ -18,7 +18,7 @@ class ChapterRepository:
             title=title,
             kind=kind,
             duration_minutes=duration_minutes,
-            completion=0,
+            completed_minutes=0,
         )
         self._session.add(chapter)
         self._session.flush()
@@ -30,9 +30,9 @@ class ChapterRepository:
             return None
         return chapter
 
-    def set_completion(self, chapter: Chapter, completion: int) -> Chapter:
+    def set_completed(self, chapter: Chapter, completed_minutes: int) -> Chapter:
         # Domain clamping happens in the service; store what we are given.
-        chapter.completion = completion
+        chapter.completed_minutes = completed_minutes
         self._session.flush()
         return chapter
 

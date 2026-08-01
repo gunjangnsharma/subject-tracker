@@ -23,7 +23,7 @@ def test_add_module_and_chapter(service):  # S2, S3
     assert module.subject_id == subject.id
 
     chapter = service.add_chapter(module.id, "Newton's laws", "video", 90)
-    assert chapter.completion == 0
+    assert chapter.completed_minutes == 0
     assert chapter.duration_minutes == 90
 
 
@@ -32,7 +32,7 @@ def test_update_completion_reflects_minutes(service):  # S4
     module = service.add_module(subject.id, "Atoms")
     chapter = service.add_chapter(module.id, "Orbitals", "video", 120)
 
-    service.set_completion(chapter.id, 5)
+    service.set_completed_minutes(chapter.id, 60)
     assert service.get_chapter(chapter.id).progress.completed_minutes == 60
 
 
@@ -40,8 +40,8 @@ def test_completion_is_clamped(service):
     subject = service.add_subject("Bio")
     module = service.add_module(subject.id, "Cells")
     chapter = service.add_chapter(module.id, "Mitosis", "text", 30)
-    service.set_completion(chapter.id, 99)
-    assert service.get_chapter(chapter.id).completion == 10
+    service.set_completed_minutes(chapter.id, 999)   # cannot exceed duration
+    assert service.get_chapter(chapter.id).completed_minutes == 30
 
 
 def test_module_and_subject_rollup(service):  # R1, R2
@@ -49,8 +49,8 @@ def test_module_and_subject_rollup(service):  # R1, R2
     m = service.add_module(subject.id, "Distributions")
     c1 = service.add_chapter(m.id, "Normal", "video", 60)
     c2 = service.add_chapter(m.id, "Poisson", "video", 120)
-    service.set_completion(c1.id, 10)   # 60 done
-    service.set_completion(c2.id, 5)    # 60 done
+    service.set_completed_minutes(c1.id, 60)   # 60 done
+    service.set_completed_minutes(c2.id, 60)   # 60 done
 
     module = service.get_module(m.id)
     assert module.progress.total_minutes == 180

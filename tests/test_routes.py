@@ -30,9 +30,13 @@ def test_subject_detail_and_chapter_flow(auth_client):  # W3, W4
     assert "Handshake" in page
     assert "1h 30m" in page  # 90 minutes displayed as hours + minutes
 
-    auth_client.post("/chapters/1/completion", data={"completion": "5"}, follow_redirects=True)
+    auth_client.post(
+        "/chapters/1/completion",
+        data={"completed_hours": "0", "completed_minutes": "45"},
+        follow_redirects=True,
+    )
     page = auth_client.get("/subjects/1").get_data(as_text=True)
-    assert "45m done" in page  # 90 * 5/10 = 45 min
+    assert "45m of 1h 30m" in page  # 45 min completed of a 90-min chapter
 
 
 def test_completion_update_returns_to_originating_page(auth_client):
@@ -48,7 +52,7 @@ def test_completion_update_returns_to_originating_page(auth_client):
     for origin in ("/today", "/week"):
         resp = auth_client.post(
             "/chapters/1/completion",
-            data={"completion": "3"},
+            data={"completed_hours": "0", "completed_minutes": "30"},
             headers={"Referer": f"http://localhost{origin}"},
         )
         assert resp.status_code == 302

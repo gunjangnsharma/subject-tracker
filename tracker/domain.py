@@ -10,14 +10,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, timedelta
 
-# Completion is expressed on a 0..10 scale (tenths of the item done).
-COMPLETION_MIN = 0
-COMPLETION_MAX = 10
+def clamp_completed(duration_minutes: int, completed_minutes: int) -> int:
+    """Clamp completed minutes into the valid 0..duration range.
 
-
-def clamp_completion(value: int) -> int:
-    """Clamp a completion value into the valid 0..10 range."""
-    return max(COMPLETION_MIN, min(COMPLETION_MAX, int(value)))
+    A chapter can never be 'more done' than its total length, nor negative.
+    """
+    return max(0, min(int(duration_minutes), int(completed_minutes)))
 
 
 def minutes_to_hours(minutes: float) -> float:
@@ -44,14 +42,6 @@ def format_hm(minutes: float) -> str:
     return f"{mins}m"
 
 
-def completed_minutes(duration_minutes: int, completion: int) -> float:
-    """Minutes actually completed given a 0..10 completion value.
-
-    Example: a 120-minute video at completion 5 -> 60 minutes done.
-    """
-    return duration_minutes * clamp_completion(completion) / COMPLETION_MAX
-
-
 def percent(completed: float, total: float) -> float:
     """Percent complete, safe against a zero total."""
     if total <= 0:
@@ -59,9 +49,9 @@ def percent(completed: float, total: float) -> float:
     return round(completed / total * 100, 1)
 
 
-def is_done(completion: int) -> bool:
-    """A chapter is finished only when completion has reached the max."""
-    return clamp_completion(completion) >= COMPLETION_MAX
+def is_done(duration_minutes: int, completed_minutes: int) -> bool:
+    """A chapter is finished when completed time has reached its full length."""
+    return completed_minutes >= duration_minutes
 
 
 def week_bounds(day: date) -> tuple[date, date]:
@@ -122,11 +112,11 @@ class Progress:
 ZERO_PROGRESS = Progress(0.0, 0.0)
 
 
-def chapter_progress(duration_minutes: int, completion: int) -> Progress:
-    """Progress for a single chapter."""
+def chapter_progress(duration_minutes: int, completed_minutes: int) -> Progress:
+    """Progress for a single chapter (completed time is stored directly)."""
     return Progress(
         total_minutes=float(duration_minutes),
-        completed_minutes=completed_minutes(duration_minutes, completion),
+        completed_minutes=float(clamp_completed(duration_minutes, completed_minutes)),
     )
 
 

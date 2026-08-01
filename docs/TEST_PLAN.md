@@ -1,7 +1,7 @@
 # Subject Tracker — Test Plan
 
 Every test and what it verifies. Built alongside the app. Run from
-`subject-tracker/` with `pytest` (100 tests). Suite runs against a fresh in-memory
+`subject-tracker/` with `pytest` (101 tests). Suite runs against a fresh in-memory
 SQLite database per test, so tests are isolated, deterministic and never touch the
 dev DB.
 
@@ -35,10 +35,10 @@ Last updated: 2026-08-01
 | `test_minutes_to_hours` | `90 → 1.5`, `0 → 0.0` (decimal hours for chart axes). |
 | `test_format_hm` | `130 → "2h 10m"`, `120 → "2h"`, `30 → "30m"`, `0 → "0m"`, `22.5 → "22m"`. |
 | `test_progress_hm_strings` | `Progress` exposes `total_hm/completed_hm/remaining_hm` as "Xh Ym". |
-| `test_completed_minutes` | `120@5 → 60`, `60@10 → 60`, `60@0 → 0`. |
+| `test_chapter_progress_from_minutes` | `120,60→60`, `60,60→60`, `60,0→0` (completed time stored directly). |
 | `test_percent_safe_and_correct` | `percent(0,0) → 0` (no divide-by-zero); `percent(30,120) → 25.0`. |
-| `test_completion_clamped` | Clamp `11 → 10`, `-1 → 0`, `7 → 7`. |
-| `test_is_done` | `10 → True`, `9 → False`. |
+| `test_completed_clamped` | Clamp completed to `0..duration` (200→120, -5→0, 45→45). |
+| `test_is_done` | `is_done(dur, done)`: 120,120→True; 120,119→False; over-complete→True. |
 | `test_week_bounds_monday_to_sunday` | A Wednesday → (that week's Monday, Sunday). |
 | `test_progress_rollup_addition` | `sum_progress` adds totals/completed/remaining and computes percent. |
 
@@ -46,9 +46,9 @@ Last updated: 2026-08-01
 | Test | Checks |
 |------|--------|
 | `test_add_and_list_subject` | Added subject appears in the user's list. |
-| `test_add_module_and_chapter` | Module links to subject; new chapter defaults completion 0, stores duration. |
-| `test_update_completion_reflects_minutes` | Set 5 on a 120-min chapter → 60 completed minutes. |
-| `test_completion_is_clamped` | Set 99 → persisted as 10 (clamped). |
+| `test_add_module_and_chapter` | Module links to subject; new chapter defaults completed 0, stores duration. |
+| `test_update_completion_reflects_minutes` | Set 60 min on a 120-min chapter → 60 completed minutes. |
+| `test_completion_is_clamped` | Set 999 → clamped to the chapter duration. |
 | `test_module_and_subject_rollup` | Module and subject totals/completed/remaining sum correctly. |
 | `test_empty_module_rollup` | Empty module → total 0, percent 0 (no error). |
 | `test_delete_subject_cascades` | Deleting a subject removes its modules and chapters. |
@@ -58,9 +58,9 @@ Last updated: 2026-08-01
 ### 3.3 `test_activity.py` — study-activity logging (4)
 | Test | Checks |
 |------|--------|
-| `test_progress_logs_positive_delta` | 0→5 on a 120-min chapter logs `+60` minutes on the given date. |
-| `test_reducing_completion_logs_negative_delta` | Then 5→3 logs `-24` (36−60); both events present. |
-| `test_no_change_logs_nothing` | Setting the same completion value logs no event. |
+| `test_progress_logs_positive_delta` | 0→60 min on a 120-min chapter logs `+60` on the given date. |
+| `test_reducing_completion_logs_negative_delta` | Then 60→36 min logs `-24`; both events present. |
+| `test_no_change_logs_nothing` | Setting the same completed minutes logs no event. |
 | `test_when_defaults_to_today` | With no `when`, the event is dated today. |
 
 ### 3.4 `test_planning.py` — plans + backlog rollover (7)
@@ -68,10 +68,10 @@ Last updated: 2026-08-01
 |------|--------|
 | `test_assigned_today_shows_in_plan` | A chapter planned today is in today's plan, not backlog. |
 | `test_yesterday_incomplete_is_backlog` | Incomplete + planned yesterday → today's backlog, keeps original date. |
-| `test_yesterday_complete_not_backlog` | Completed (10) + planned yesterday → not in backlog. |
+| `test_yesterday_complete_not_backlog` | Completed (full) + planned yesterday → not in backlog. |
 | `test_past_incomplete_is_rolling_backlog` | Incomplete + planned in the past → rolling plan's overdue backlog. |
 | `test_future_shows_in_its_day_not_backlog` | Planned today+3 → appears in that day-group, not backlog. |
-| `test_finishing_backlog_removes_it` | Setting completion 10 removes it from both today & week backlog. |
+| `test_finishing_backlog_removes_it` | Marking it fully complete removes it from both today & week backlog. |
 | `test_rolling_window_is_today_to_today_plus_6` | Window is 7 days starting today; day 0 is today. |
 
 ### 3.5 `test_backlog_display.py` — backlog carry-over shows the heading (6)
@@ -111,7 +111,7 @@ Last updated: 2026-08-01
 |------|--------|
 | `test_list_is_scoped_per_user` | Each user lists only their own subjects. |
 | `test_cannot_get_other_users_subject` | Fetching another user's subject by id returns None. |
-| `test_cannot_edit_other_users_chapter` | Foreign chapter: `get` → None, `set_completion` raises. |
+| `test_cannot_edit_other_users_chapter` | Foreign chapter: `get` → None, `set_completed_minutes` raises. |
 | `test_cannot_plan_other_users_chapter` | Planning another user's chapter raises. |
 | `test_dashboard_is_scoped` | One user's dashboard shows zero of another user's data. |
 | `test_admin_can_see_overview` | Admin gets `/admin` → 200 with the overview. |
@@ -131,7 +131,7 @@ Last updated: 2026-08-01
 | `test_theme_toggle_present_on_every_page` | Base layout ships the toggle button + the no-flash theme script. |
 | `test_completion_update_returns_to_originating_page` | Saving completion from `/today` or `/week` redirects back there (via Referer), not to subject detail. |
 
-### 3.10 `test_backup.py` — JSON export / import (15)
+### 3.10 `test_backup.py` — JSON export / import (16)
 | Test | Checks |
 |------|--------|
 | `test_export_structure` | Envelope (format/version/user) + nested subjects with `plan_dates` and `activity`. |
@@ -139,6 +139,7 @@ Last updated: 2026-08-01
 | `test_export_then_import_into_another_user` | Import counts correct; imported payload matches the source. |
 | `test_import_preserves_completion_without_extra_activity` | Completion restored verbatim; no fabricated activity events. |
 | `test_import_keeps_one_plan_date_per_chapter` | Multiple `plan_dates` collapse to the first (one date per chapter). |
+| `test_import_v1_backup_converts_completion_to_minutes` | Legacy v1 (0–10) import converts to completed minutes. |
 | `test_import_is_additive` | Existing subjects kept; imported ones added. |
 | `test_invalid_envelope_rejected` (×4 params) | Non-dict / wrong format / bad version / non-list subjects → `BackupError`. |
 | `test_invalid_kind_rejected_and_rolls_back` | Bad `kind` raises **and** nothing persists (atomic rollback). |
@@ -178,7 +179,9 @@ Last updated: 2026-08-01
 
 - [ ] Register an account; land on the dashboard.
 - [ ] Add a subject, module, and a 90-min video chapter; detail header shows `1.5h`.
-- [ ] Set completion to 5; module/subject bars + dashboard reflect partial progress.
+- [ ] Enter completed time as hours+minutes; module/subject bars + dashboard reflect it.
+- [ ] Enter minutes > 59 → inline "Minutes must be 0–59" (no popup), Save blocked.
+- [ ] Enter a time exceeding the chapter length → inline "Can't exceed <duration>", Save blocked.
 - [ ] Plan the chapter for today; it appears on `/today`.
 - [ ] Plan a chapter for a past day/week; it appears as backlog with "carried from <date>".
 - [ ] Open `/week`: 7 day sections from today, today highlighted, tasks under the right day, empty days say "Nothing planned".

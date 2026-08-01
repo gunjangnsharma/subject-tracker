@@ -26,12 +26,12 @@ def planning(session, user_id):
     return PlanningService(session, user_id)
 
 
-def _make_chapter(subjects, duration=120, completion=0):
+def _make_chapter(subjects, duration=120, completed=0):
     subject = subjects.add_subject("S")
     module = subjects.add_module(subject.id, "M")
     chapter = subjects.add_chapter(module.id, "Chapter A", "video", duration)
-    if completion:
-        subjects.set_completion(chapter.id, completion)
+    if completed:
+        subjects.set_completed_minutes(chapter.id, completed)
     return chapter
 
 
@@ -44,7 +44,7 @@ def test_assigned_today_shows_in_plan(subjects, planning):  # P1
 
 
 def test_yesterday_incomplete_is_backlog(subjects, planning):  # P2
-    ch = _make_chapter(subjects, completion=5)  # half done
+    ch = _make_chapter(subjects, completed=60)  # half done
     planning.assign(ch.id, YESTERDAY)
     plan = planning.today_plan(TODAY)
     assert [i.chapter.id for i in plan.backlog] == [ch.id]
@@ -52,21 +52,21 @@ def test_yesterday_incomplete_is_backlog(subjects, planning):  # P2
 
 
 def test_yesterday_complete_not_backlog(subjects, planning):  # P3
-    ch = _make_chapter(subjects, completion=10)  # finished
+    ch = _make_chapter(subjects, completed=120)  # finished
     planning.assign(ch.id, YESTERDAY)
     plan = planning.today_plan(TODAY)
     assert plan.backlog == []
 
 
 def test_past_incomplete_is_rolling_backlog(subjects, planning):  # P4
-    ch = _make_chapter(subjects, completion=3)
+    ch = _make_chapter(subjects, completed=36)
     planning.assign(ch.id, LAST_WEEK)
     plan = planning.rolling_plan(TODAY)
     assert [i.chapter.id for i in plan.backlog] == [ch.id]
 
 
 def test_future_shows_in_its_day_not_backlog(subjects, planning):  # P5
-    ch = _make_chapter(subjects, completion=2)
+    ch = _make_chapter(subjects, completed=24)
     day3 = TODAY + timedelta(days=3)
     planning.assign(ch.id, day3)
     plan = planning.rolling_plan(TODAY)
@@ -76,14 +76,14 @@ def test_future_shows_in_its_day_not_backlog(subjects, planning):  # P5
 
 
 def test_finishing_backlog_removes_it(subjects, planning):  # P6
-    ch = _make_chapter(subjects, completion=5)
+    ch = _make_chapter(subjects, completed=60)
     planning.assign(ch.id, YESTERDAY)
     planning.assign(ch.id, LAST_WEEK)
 
     assert planning.today_plan(TODAY).backlog        # present before
     assert planning.rolling_plan(TODAY).backlog
 
-    subjects.set_completion(ch.id, 10)               # finish it
+    subjects.set_completed_minutes(ch.id, 120)               # finish it
 
     assert planning.today_plan(TODAY).backlog == []  # gone from both
     assert planning.rolling_plan(TODAY).backlog == []

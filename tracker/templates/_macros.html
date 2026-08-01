@@ -14,6 +14,24 @@
   <span class="pill pill-{{ kind }}">{{ kind }}</span>
 {% endmacro %}
 
+{# Hours+minutes "completed" input for a chapter, with an inline error slot.
+   Client-side validation (app.js) enforces: minutes 0-59, and total <= duration.
+   `novalidate` suppresses the browser's native validation popups. #}
+{% macro completion_input(chapter) %}
+  <form class="completion-form" method="post" novalidate
+        data-duration="{{ chapter.duration_minutes }}"
+        action="{{ url_for('subjects.update_completion', chapter_id=chapter.id) }}">
+    <span class="hm-field">
+      <input type="number" name="completed_hours" min="0" inputmode="numeric"
+             value="{{ chapter.completed_h }}" aria-label="completed hours"><span class="hm-unit">h</span>
+      <input type="number" name="completed_minutes" min="0" max="59" inputmode="numeric"
+             value="{{ chapter.completed_m }}" aria-label="completed minutes"><span class="hm-unit">m</span>
+    </span>
+    <button type="submit">Save</button>
+    <span class="field-error" role="alert" hidden></span>
+  </form>
+{% endmacro %}
+
 {# A list of PlannedItem. `show_from` labels the original planned date (backlog). #}
 {% macro plan_list(items, show_from=false) %}
   {% if items %}
@@ -29,11 +47,7 @@
           <div class="plan-item-meta">
             {% if show_from %}<span class="carried">carried from {{ item.planned_date }}</span>{% endif %}
             <span class="muted">{{ p.completed_hm }} / {{ p.total_hm }} ({{ p.percent }}%)</span>
-            <form class="completion-form inline" method="post"
-                  action="{{ url_for('subjects.update_completion', chapter_id=item.chapter.id) }}">
-              <input type="number" name="completion" min="0" max="10" value="{{ item.chapter.completion }}">
-              <button type="submit">Save</button>
-            </form>
+            {{ completion_input(item.chapter) }}
           </div>
         </li>
       {% endfor %}

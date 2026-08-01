@@ -28,18 +28,18 @@ def planning(session, user_id):
     return PlanningService(session, user_id)
 
 
-def _chapter(subjects, title, completion=0, duration=120):
+def _chapter(subjects, title, completed=0, duration=120):
     subject = subjects.add_subject("S")
     module = subjects.add_module(subject.id, "M")
     ch = subjects.add_chapter(module.id, title, "video", duration)
-    if completion:
-        subjects.set_completion(ch.id, completion, when=LAST_WEEK)
+    if completed:
+        subjects.set_completed_minutes(ch.id, completed, when=LAST_WEEK)
     return ch
 
 
 # --- Service level (deterministic clock) --------------------------------
 def test_past_week_incomplete_goes_to_weekly_backlog(subjects, planning):
-    ch = _chapter(subjects, "Fourier Transforms", completion=4)  # 40% done
+    ch = _chapter(subjects, "Fourier Transforms", completed=48)  # 40% done
     planning.assign(ch.id, LAST_WEEK)
 
     week = planning.rolling_plan(TODAY)
@@ -49,7 +49,7 @@ def test_past_week_incomplete_goes_to_weekly_backlog(subjects, planning):
 
 
 def test_past_day_incomplete_goes_to_today_backlog(subjects, planning):
-    ch = _chapter(subjects, "Gradient Descent", completion=5)
+    ch = _chapter(subjects, "Gradient Descent", completed=60)
     planning.assign(ch.id, YESTERDAY)
 
     day = planning.today_plan(TODAY)
@@ -59,28 +59,28 @@ def test_past_day_incomplete_goes_to_today_backlog(subjects, planning):
 
 
 def test_completed_item_not_in_either_backlog(subjects, planning):
-    ch = _chapter(subjects, "Finished Topic", completion=10)  # done
+    ch = _chapter(subjects, "Finished Topic", completed=120)  # done
     planning.assign(ch.id, LAST_WEEK)
     assert planning.today_plan(TODAY).backlog == []
     assert planning.rolling_plan(TODAY).backlog == []
 
 
 # --- Rendered page level (real clock, via HTTP) -------------------------
-def _seed_via_http(client, title, planned_date, completion=None):
+def _seed_via_http(client, title, planned_date, completed=None):
+    # Assumes a clean DB per test, so ids start at 1.
     client.post("/subjects", data={"name": "Subj"}, follow_redirects=True)
-    # subject/module ids increment; fetch the just-made subject page is not needed —
-    # we create module+chapter under the latest ids.
-    # To keep ids predictable, create everything fresh per call is avoided; instead
-    # the caller controls order. Here we assume a clean DB per test.
     client.post("/subjects/1/modules", data={"name": "Mod"}, follow_redirects=True)
     client.post(
         "/modules/1/chapters",
         data={"title": title, "kind": "video", "duration_minutes": "120"},
         follow_redirects=True,
     )
-    if completion is not None:
-        client.post("/chapters/1/completion", data={"completion": str(completion)},
-                    follow_redirects=True)
+    if completed is not None:
+        client.post(
+            "/chapters/1/completion",
+            data={"completed_hours": str(completed // 60), "completed_minutes": str(completed % 60)},
+            follow_redirects=True,
+        )
     client.post("/chapters/1/plan", data={"planned_date": planned_date.isoformat()},
                 follow_redirects=True)
 
@@ -88,7 +88,7 @@ def _seed_via_http(client, title, planned_date, completion=None):
 def test_today_page_shows_backlog_heading(auth_client):
     today = date.today()
     yesterday = today - timedelta(days=1)
-    _seed_via_http(auth_client, "Backprop Chapter", yesterday, completion=5)
+    _seed_via_http(auth_client, "Backprop Chapter", yesterday, completed=60)
 
     page = auth_client.get("/today").get_data(as_text=True)
     assert "Backprop Chapter" in page                 # heading is shown
@@ -99,7 +99,7 @@ def test_today_page_shows_backlog_heading(auth_client):
 def test_week_page_shows_backlog_heading(auth_client):
     today = date.today()
     last_week = today - timedelta(days=8)
-    _seed_via_http(auth_client, "Eigen Chapter", last_week, completion=3)
+    _seed_via_http(auth_client, "Eigen Chapter", last_week, completed=36)
 
     page = auth_client.get("/week").get_data(as_text=True)
     assert "Eigen Chapter" in page
@@ -110,7 +110,7 @@ def test_week_page_shows_backlog_heading(auth_client):
 def test_finished_item_absent_from_today_page(auth_client):
     today = date.today()
     yesterday = today - timedelta(days=1)
-    _seed_via_http(auth_client, "Done Chapter", yesterday, completion=10)
+    _seed_via_http(auth_client, "Done Chapter", yesterday, completed=120)
 
     page = auth_client.get("/today").get_data(as_text=True)
     assert "carried from" not in page                 # nothing carried over

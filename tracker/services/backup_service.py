@@ -42,7 +42,8 @@ from tracker.repositories.subject_repository import ModuleRepository, SubjectRep
 from tracker.services.auth_service import AuthService
 
 BACKUP_FORMAT = "subject-tracker-backup"
-BACKUP_VERSION = 1
+BACKUP_VERSION = 2                 # v2 stores completed_minutes
+SUPPORTED_VERSIONS = (1, 2)        # v1 stored completion on a 0..10 scale
 
 
 @dataclass(frozen=True)
@@ -98,7 +99,7 @@ class BackupService:
             "title": chapter.title,
             "kind": chapter.kind,
             "duration_minutes": chapter.duration_minutes,
-            "completion": chapter.completion,
+            "completed_minutes": chapter.completed_minutes,
             "plan_dates": [a.planned_date.isoformat() for a in chapter.assignments],
             "activity": [
                 {"occurred_on": e.occurred_on.isoformat(), "minutes_delta": e.minutes_delta}
@@ -109,6 +110,7 @@ class BackupService:
     # --- Import ------------------------------------------------------------
     def import_data(self, data) -> ImportSummary:
         self._validate_envelope(data)
+        self._version = data.get("version")   # drives v1 vs v2 completion parsing
         counts = {"subjects": 0, "modules": 0, "chapters": 0, "plans": 0, "activity": 0}
         try:
             for s_index, subj in enumerate(self._require_list(data, "subjects")):
@@ -142,10 +144,16 @@ class BackupService:
         if kind not in CHAPTER_KINDS:
             raise BackupError(f"{where}.kind must be one of {CHAPTER_KINDS}, got {kind!r}.")
         duration = self._require_int(ch, "duration_minutes", where, minimum=0)
-        completion = domain.clamp_completion(self._require_int(ch, "completion", where, minimum=0))
+        if self._version == 1:
+            # v1 stored a 0..10 completion; convert to completed minutes.
+            completion = max(0, min(10, self._require_int(ch, "completion", where, minimum=0)))
+            completed = round(duration * completion / 10)
+        else:
+            completed = self._require_int(ch, "completed_minutes", where, minimum=0)
+        completed = domain.clamp_completed(duration, completed)
 
         chapter = self._chapters.add(module_id, title, kind, duration)
-        chapter.completion = completion  # set verbatim (no activity side-effect)
+        chapter.completed_minutes = completed  # set verbatim (no activity side-effect)
         counts["chapters"] += 1
 
         # One date per chapter: keep only the first plan date (older backups may
@@ -168,7 +176,7 @@ class BackupService:
             raise BackupError("Backup must be a JSON object.")
         if data.get("format") != BACKUP_FORMAT:
             raise BackupError(f"Not a {BACKUP_FORMAT!r} file.")
-        if data.get("version") != BACKUP_VERSION:
+        if data.get("version") not in SUPPORTED_VERSIONS:
             raise BackupError(f"Unsupported backup version: {data.get('version')!r}.")
 
     @staticmethod

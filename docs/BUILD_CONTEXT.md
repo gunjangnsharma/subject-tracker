@@ -73,7 +73,7 @@ User 1───* Subject 1───* Module 1───* Chapter 1───* Plan
 | **User** | `id`, `username` (unique), `password_hash`, `role` (`user`\|`admin`) | Account. Passwords hashed with Werkzeug PBKDF2. `is_admin` property. |
 | **Subject** | `id`, `user_id` (FK→users), `name` | Top-level study area, **owned by a user**. |
 | **Module** | `id`, `subject_id` (FK→subjects), `name` | A unit inside a subject. |
-| **Chapter** | `id`, `module_id` (FK→modules), `title`, `kind` (`video`\|`text`), `duration_minutes` (int), `completion` (int 0–10) | The atomic trackable item. |
+| **Chapter** | `id`, `module_id` (FK→modules), `title`, `kind` (`video`\|`text`), `duration_minutes` (int), `completed_minutes` (int, 0..duration) | The atomic trackable item. Completed time entered as hours+minutes. |
 | **PlanAssignment** | `id`, `chapter_id` (FK→chapters), `planned_date` (DATE) | "Do this chapter on this day." Week is **derived** from the date, not stored. |
 | **ProgressEvent** | `id`, `chapter_id` (FK→chapters), `occurred_on` (DATE), `minutes_delta` (float) | Study-activity log entry: change in completed minutes on a day. |
 
@@ -95,11 +95,17 @@ relationships and with `ondelete="CASCADE"` on the FKs.
 - `domain.minutes_to_hours` (decimal hours) survives **only** for numeric chart
   axes; chart tooltips convert back to h/m via `formatHM` in `app.js`.
 
-### 5.2 Completion — the "1–10" metric
-- `completion` is an integer **0–10** = tenths of the chapter done (`10`=finished, `5`=half, `0`=not started).
-- **Completed minutes** = `duration_minutes * completion / 10`.
-- Spec example: a 2-hour (120 min) video with 1 hour done → enter `5` → `120*5/10 = 60` min (50%).
-- Input is **clamped** to 0–10 (`domain.clamp_completion`); a chapter is **done** when `completion == 10`.
+### 5.2 Completion — actual completed minutes
+- A chapter stores **`completed_minutes`** (int, `0..duration_minutes`) — the real
+  time done, entered via two inputs (hours + minutes) in the UI.
+- **Done** when `completed_minutes >= duration_minutes` (`domain.is_done`).
+- Server **clamps** to `0..duration` (`domain.clamp_completed`) as a safety net.
+- **Validation** (client-side, inline, no popups — see §9): minutes must be `0–59`;
+  hours×60 + minutes must not exceed the chapter's duration. The form is
+  `novalidate` and `app.js` renders errors into a `.field-error` element and
+  blocks submit. `Chapter.completed_h` / `completed_m` split the value for the inputs.
+- *(History: earlier versions used a 0–10 completion proxy; that was replaced by
+  direct minutes. Backups migrate — see §10.)*
 
 ### 5.3 Roll-ups (aggregation) — always computed, never stored
 Derived live so they can't drift. Implemented as `domain.Progress` (a frozen
@@ -308,7 +314,10 @@ returns **404** (via repository `get()` returning None), never another user's da
 
 ## 10. JSON backup (export / import) — the standard format
 
-Versioned document (`format: "subject-tracker-backup"`, `version: 1`):
+Versioned document (`format: "subject-tracker-backup"`, `version: 2`). Chapters
+carry `completed_minutes`. **Importing v1** (which stored `completion` 0–10) is
+still supported — it converts `completed = round(duration * completion / 10)`.
+Export always emits v2.
 
 ```json
 {
@@ -320,7 +329,7 @@ Versioned document (`format: "subject-tracker-backup"`, `version: 1`):
     {"name": "...", "modules": [
       {"name": "...", "chapters": [
         {"title": "...", "kind": "video|text", "duration_minutes": 120,
-         "completion": 10, "plan_dates": ["YYYY-MM-DD"],   // 0 or 1 (one date per chapter)
+         "completed_minutes": 90, "plan_dates": ["YYYY-MM-DD"],   // plan_dates: 0 or 1
          "activity": [{"occurred_on": "YYYY-MM-DD", "minutes_delta": 120.0}]}
       ]}
     ]}
@@ -453,8 +462,10 @@ Each milestone is a single commit:
 
 - **Stack = Flask + SQLAlchemy + SQLite**: readable, minimal setup, maps cleanly to
   SOLID service/repository layers; SQLite needs no server. (User-confirmed.)
-- **Completion = 10-point ratio of duration** (not raw minutes): matches the spec's
-  2-hour→enter-5 example. (User-confirmed.)
+- **Completion = actual completed minutes** entered as hours+minutes (two inputs),
+  with inline client validation (minutes 0–59; total ≤ duration) and no popups.
+  Replaced the original 0–10 proxy for precision, per user request. Backup bumped
+  to v2; v1 backups auto-convert on import.
 - **Roll-ups computed, never stored**: eliminates drift; cheap at this scale.
 - **Backlog derived from dates, not moved**: idempotent, needs no scheduler, and
   finishing a chapter clears it everywhere automatically.
