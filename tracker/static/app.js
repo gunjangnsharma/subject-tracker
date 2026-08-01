@@ -308,11 +308,23 @@
       const btn = form.querySelector('button[type="submit"]');
       if (!dateEl || !btn) return;
 
-      // No back-dating: the picker can't select earlier than today.
-      dateEl.min = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD, local
+      const today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD, local
+      // The field may arrive pre-filled with the date this chapter is already
+      // planned for. If that date is in the past (an overdue/backlog item), do
+      // NOT set `min` to today — the browser would mark the field invalid and
+      // the user could not simply reopen the picker. Only constrain the picker
+      // when there is nothing to preserve.
+      const initial = dateEl.value;
+      if (!initial || initial >= today) {
+        // No back-dating: the picker can't select earlier than today.
+        dateEl.min = today;
+      }
 
       function sync() {
-        btn.disabled = !dateEl.value || (dateEl.min && dateEl.value < dateEl.min);
+        // Unchanged value is a no-op; nothing to submit.
+        const empty = !dateEl.value;
+        const tooEarly = dateEl.min && dateEl.value < dateEl.min;
+        btn.disabled = empty || tooEarly || dateEl.value === initial;
       }
       sync();
       dateEl.addEventListener("input", sync);

@@ -42,11 +42,7 @@
             <td>{{ chapter.duration_minutes|hm }}</td>
             <td>{{ ui.completion_display(chapter) }}</td>
             <td>
-              <form class="plan-form" method="post"
-                    action="{{ url_for('planning.assign', chapter_id=chapter.id) }}">
-                <input type="date" name="planned_date">
-                <button type="submit">Plan</button>
-              </form>
+              {{ ui.plan_control(chapter) }}
             </td>
             <td>
               <form method="post" action="{{ url_for('subjects.delete_chapter', chapter_id=chapter.id) }}"

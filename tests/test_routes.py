@@ -179,3 +179,67 @@ def test_theme_toggle_present_on_every_page(client):
     assert 'id="themeToggle"' in page
     assert "data-theme" in page              # early theme-setting script
     assert "localStorage.getItem(\"theme\")" in page
+
+
+def test_subject_page_shows_the_planned_date_not_today(auth_client):
+    """Regression: the Plan cell showed an empty date input, so a chapter planned
+    for another day looked like it was planned for today."""
+    from datetime import date, timedelta
+
+    auth_client.post("/subjects", data={"name": "S"}, follow_redirects=True)
+    page = auth_client.get("/subjects").get_data(as_text=True)
+    subject_id = int(page.split("/subjects/")[1].split('"')[0])
+    auth_client.post(f"/subjects/{subject_id}/modules", data={"name": "M"},
+                     follow_redirects=True)
+    detail = auth_client.get(f"/subjects/{subject_id}").get_data(as_text=True)
+    module_id = int(detail.split("/modules/")[1].split("/")[0])
+    auth_client.post(f"/modules/{module_id}/chapters",
+                     data={"title": "Ch", "kind": "video", "duration_minutes": "60"},
+                     follow_redirects=True)
+    detail = auth_client.get(f"/subjects/{subject_id}").get_data(as_text=True)
+    chapter_id = int(detail.split('data-chapter-row="')[1].split('"')[0])
+
+    # Unplanned: no value, and the page says so.
+    assert 'value=""' in detail or "Not planned" in detail
+    assert "Not planned" in detail
+
+    tomorrow = date.today() + timedelta(days=1)
+    auth_client.post(f"/chapters/{chapter_id}/plan",
+                     data={"planned_date": tomorrow.isoformat()})
+
+    detail = auth_client.get(f"/subjects/{subject_id}").get_data(as_text=True)
+    # The stored date is pre-filled (so the picker opens on it, not today)...
+    assert f'value="{tomorrow.isoformat()}"' in detail
+    # ...and rendered as text for the user.
+    assert tomorrow.strftime("%a %d %b") in detail
+    # It must NOT claim today.
+    assert date.today().strftime("%a %d %b") not in detail
+    assert "Not planned" not in detail
+    assert "Reschedule" in detail
+
+
+def test_subject_page_planned_date_survives_a_reschedule(auth_client):
+    """Re-planning shows the new date, not the old one or today."""
+    from datetime import date, timedelta
+
+    auth_client.post("/subjects", data={"name": "S2"}, follow_redirects=True)
+    page = auth_client.get("/subjects").get_data(as_text=True)
+    subject_id = int(page.split("/subjects/")[1].split('"')[0])
+    auth_client.post(f"/subjects/{subject_id}/modules", data={"name": "M"},
+                     follow_redirects=True)
+    detail = auth_client.get(f"/subjects/{subject_id}").get_data(as_text=True)
+    module_id = int(detail.split("/modules/")[1].split("/")[0])
+    auth_client.post(f"/modules/{module_id}/chapters",
+                     data={"title": "Ch", "kind": "video", "duration_minutes": "60"},
+                     follow_redirects=True)
+    detail = auth_client.get(f"/subjects/{subject_id}").get_data(as_text=True)
+    chapter_id = int(detail.split('data-chapter-row="')[1].split('"')[0])
+
+    first = date.today() + timedelta(days=2)
+    second = date.today() + timedelta(days=5)
+    auth_client.post(f"/chapters/{chapter_id}/plan", data={"planned_date": first.isoformat()})
+    auth_client.post(f"/chapters/{chapter_id}/plan", data={"planned_date": second.isoformat()})
+
+    detail = auth_client.get(f"/subjects/{subject_id}").get_data(as_text=True)
+    assert f'value="{second.isoformat()}"' in detail
+    assert f'value="{first.isoformat()}"' not in detail

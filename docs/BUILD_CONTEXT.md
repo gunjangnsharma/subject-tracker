@@ -152,6 +152,14 @@ constraint is required.)
   - *Overdue backlog* = assignments with `planned_date < today` **and** chapter not
     done (identical rule to the Today page's backlog).
   - Items planned **beyond** `today+6` are not shown until they enter the window.
+- **The subject page shows each chapter's planned date.** `Chapter.planned_date`
+  (the single assignment's date, or None) drives the `plan_control` macro: the
+  date input is **pre-filled** with the stored date so reopening the picker lands
+  on that day, the date is also rendered as text, and the button reads
+  Plan / Reschedule. *(Bug fixed here: the cell used to be an always-empty date
+  input, so a chapter planned for another day looked like it was planned for
+  today.)* The no-back-dating `min` is only applied when the field is empty or
+  already future-dated — otherwise an overdue item's own date would be invalid.
 - Because backlog is **computed on read**, finishing a chapter (`completion=10`)
   removes it from all backlogs automatically. Nothing is moved or deleted; **no cron**.
 
@@ -308,7 +316,7 @@ subject-tracker/
     │   │                            flash messages, Chart.js + app.js includes, {% block scripts %}.
     │   ├── _macros.html             progress_bar(p), kind_pill(kind), completion_display,
     │   │                            completion_control, reorder_control(chapter, first, last),
-    │   │                            plan_list(items, show_from).
+    │   │                            plan_control(chapter), plan_list(items, show_from).
     │   ├── dashboard.html           Hero doughnut, stat cards, subject+week charts (data via JSON).
     │   ├── subjects.html            Subject list + add form + backup (import/export) bar.
     │   ├── subject_detail.html      Modules/chapters tables, completion & plan forms.

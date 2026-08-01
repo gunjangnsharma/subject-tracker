@@ -1,7 +1,7 @@
 # Subject Tracker — Test Plan
 
 Every test and what it verifies. Built alongside the app. Run from
-`subject-tracker/` with `pytest` (180 tests). Suite runs against a fresh in-memory
+`subject-tracker/` with `pytest` (182 tests). Suite runs against a fresh in-memory
 SQLite database per test, so tests are isolated, deterministic and never touch the
 dev DB.
 
@@ -122,7 +122,7 @@ subject + module holding four chapters (`First`..`Fourth`) in a known order.
 | `test_regular_user_forbidden_from_admin` | Non-admin hitting `/admin` → 403. |
 | `test_admin_link_hidden_for_regular_user` | The Admin nav link is absent for a regular user. |
 
-### 3.9 `test_routes.py` — route smoke + auth gating (17)
+### 3.9 `test_routes.py` — route smoke + auth gating (19)
 | Test | Checks |
 |------|--------|
 | `test_dashboard_ok` | `GET /` → 200 when logged in. |
@@ -142,6 +142,8 @@ subject + module holding four chapters (`First`..`Fourth`) in a known order.
 | `test_plan_rejects_past_date` | Planning a past date is refused (flash "past date"); nothing assigned. |
 | `test_plan_allows_future_date` | Planning a future date assigns it (shows on `/week`). |
 | `test_html_pages_are_not_cached` | Dynamic HTML sends `Cache-Control: no-store`; static assets don't. |
+| `test_subject_page_shows_the_planned_date_not_today` | **Regression:** a chapter planned for tomorrow shows that date (pre-filled input + "Mon 03 Aug" text) and never today's; unplanned chapters say "Not planned". |
+| `test_subject_page_planned_date_survives_a_reschedule` | Re-planning shows the new date, not the previous one. |
 
 ### 3.10 `test_backup.py` — JSON export / import (17)
 | Test | Checks |

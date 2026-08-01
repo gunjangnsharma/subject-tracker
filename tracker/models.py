@@ -137,6 +137,19 @@ class Chapter(Base):
     def completed_m(self) -> int:
         return self.completed_minutes % 60
 
+    @property
+    def planned_date(self) -> date | None:
+        """The date this chapter is planned for, or None if unplanned.
+
+        A chapter has **at most one** assignment (see PlanningService.assign —
+        planning is an upsert), so this collapses the relationship to the single
+        date the UI cares about. Older data could carry duplicates; take the
+        earliest so the value is deterministic either way.
+        """
+        if not self.assignments:
+            return None
+        return min(a.planned_date for a in self.assignments)
+
 
 class PlanAssignment(Base):
     """A chapter planned for a specific calendar day.

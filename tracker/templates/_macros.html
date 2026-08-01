@@ -68,6 +68,34 @@
   </span>
 {% endmacro %}
 
+{# Plan control for the subject page: shows the date the chapter is actually
+   planned for (or "Not planned"), with the input pre-filled so the picker opens
+   on that date rather than today. `planned_date` comes from the chapter's single
+   assignment. The button says Plan / Reschedule to match the current state. #}
+{% macro plan_control(chapter) %}
+  {% set planned = chapter.planned_date %}
+  <div class="plan-cell">
+    <div class="plan-state">
+      {% if planned %}
+        <span class="planned-on" data-planned-date="{{ planned }}">
+          {{ planned.strftime('%a %d %b') }}
+        </span>
+      {% else %}
+        <span class="muted">Not planned</span>
+      {% endif %}
+    </div>
+    <form class="plan-form" method="post"
+          action="{{ url_for('planning.assign', chapter_id=chapter.id) }}">
+      {# Pre-filled with the stored date, so reopening the picker shows the day
+         this chapter is on — not today. Empty when unplanned. #}
+      <input type="date" name="planned_date"
+             value="{{ planned.isoformat() if planned else '' }}"
+             aria-label="{{ 'Reschedule' if planned else 'Plan' }} {{ chapter.title }}">
+      <button type="submit">{{ 'Reschedule' if planned else 'Plan' }}</button>
+    </form>
+  </div>
+{% endmacro %}
+
 {# A list of PlannedItem. `show_from` labels the original planned date (backlog). #}
 {% macro plan_list(items, show_from=false) %}
   {% if items %}

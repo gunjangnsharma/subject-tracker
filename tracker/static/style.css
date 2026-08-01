@@ -262,6 +262,19 @@ tr.just-moved { animation: just-moved-flash 0.6s ease-out; }
 }
 
 .completion-form, .plan-form { display: flex; align-items: center; gap: 0.35rem; }
+
+/* Plan cell: the date the chapter is planned for, above the (re)schedule form. */
+.plan-cell { display: flex; flex-direction: column; gap: 0.2rem; }
+.plan-state { font-size: 0.82rem; }
+.planned-on {
+  display: inline-block;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--carried-bg);
+  color: var(--carried-ink);
+  font-weight: 600;
+  white-space: nowrap;
+}
 .completion-form input[type=number] { width: 4rem; }
 .chapter-form { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem; }
 
