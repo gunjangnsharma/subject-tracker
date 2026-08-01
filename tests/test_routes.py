@@ -117,6 +117,15 @@ def test_completion_ajax_returns_json(auth_client):
     assert data["is_done"] is False
 
 
+def test_html_pages_are_not_cached(auth_client):
+    # Dynamic HTML must not be cached, so the browser never shows a stale view.
+    resp = auth_client.get("/today")
+    assert resp.headers.get("Cache-Control") == "no-store"
+    # Static assets keep their normal (cacheable) headers.
+    css = auth_client.get("/static/style.css")
+    assert css.headers.get("Cache-Control") != "no-store"
+
+
 def test_theme_toggle_present_on_every_page(client):
     # The base layout ships the toggle button + the no-flash theme script.
     page = client.get("/login").get_data(as_text=True)

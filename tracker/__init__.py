@@ -36,6 +36,14 @@ def create_app(config: type[Config] | Config = Config) -> Flask:
     def _inject_user() -> dict:
         return {"current_user": current_user()}
 
+    # Never cache rendered HTML pages (they change with the user's data), so the
+    # browser can't show a stale view. Static assets keep their normal caching.
+    @app.after_request
+    def _no_store_html(response):
+        if response.mimetype == "text/html":
+            response.headers["Cache-Control"] = "no-store"
+        return response
+
     @app.teardown_request
     def _close_session(exc: BaseException | None) -> None:
         if exc is not None:
