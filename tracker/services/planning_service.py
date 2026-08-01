@@ -109,6 +109,10 @@ class PlanningService:
         # Ownership guard: only the owner of the chapter may plan it.
         if self._chapters.get(chapter_id) is None:
             raise ValueError("Chapter not found.")
+        # One date per chapter: remove any existing plan (re-planning *moves* it),
+        # so a chapter can never appear on more than one day / in more than one place.
+        for existing in self._plans.for_chapter(chapter_id):
+            self._plans.delete(existing)
         assignment = self._plans.add(chapter_id, planned_date)
         self._session.commit()
         return assignment

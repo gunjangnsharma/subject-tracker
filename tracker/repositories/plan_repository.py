@@ -49,3 +49,11 @@ class PlanRepository:
         """The user's assignments planned strictly before ``cutoff`` (backlog candidates)."""
         stmt = self._scoped().where(PlanAssignment.planned_date < cutoff)
         return list(self._session.scalars(stmt))
+
+    def for_chapter(self, chapter_id: int) -> list[PlanAssignment]:
+        """The user's assignments for a given chapter (0 or 1 under the one-date rule)."""
+        stmt = self._scoped().where(PlanAssignment.chapter_id == chapter_id)
+        return list(self._session.scalars(stmt))
+
+    def delete(self, assignment: PlanAssignment) -> None:
+        self._session.delete(assignment)

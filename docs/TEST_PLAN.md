@@ -1,7 +1,7 @@
 # Subject Tracker — Test Plan
 
 Every test and what it verifies. Built alongside the app. Run from
-`subject-tracker/` with `pytest` (89 tests). Suite runs against a fresh in-memory
+`subject-tracker/` with `pytest` (94 tests). Suite runs against a fresh in-memory
 SQLite database per test, so tests are isolated, deterministic and never touch the
 dev DB.
 
@@ -129,13 +129,14 @@ Last updated: 2026-08-01
 | `test_theme_toggle_present_on_every_page` | Base layout ships the toggle button + the no-flash theme script. |
 | `test_completion_update_returns_to_originating_page` | Saving completion from `/today` or `/week` redirects back there (via Referer), not to subject detail. |
 
-### 3.10 `test_backup.py` — JSON export / import (14)
+### 3.10 `test_backup.py` — JSON export / import (15)
 | Test | Checks |
 |------|--------|
 | `test_export_structure` | Envelope (format/version/user) + nested subjects with `plan_dates` and `activity`. |
 | `test_export_is_json_serialisable` | Export round-trips through `json.dumps`/`loads`. |
 | `test_export_then_import_into_another_user` | Import counts correct; imported payload matches the source. |
 | `test_import_preserves_completion_without_extra_activity` | Completion restored verbatim; no fabricated activity events. |
+| `test_import_keeps_one_plan_date_per_chapter` | Multiple `plan_dates` collapse to the first (one date per chapter). |
 | `test_import_is_additive` | Existing subjects kept; imported ones added. |
 | `test_invalid_envelope_rejected` (×4 params) | Non-dict / wrong format / bad version / non-list subjects → `BackupError`. |
 | `test_invalid_kind_rejected_and_rolls_back` | Bad `kind` raises **and** nothing persists (atomic rollback). |
@@ -144,7 +145,7 @@ Last updated: 2026-08-01
 | `test_import_route_adds_data` | `POST /import` with a file adds the data and redirects. |
 | `test_import_route_rejects_bad_json` | Uploading invalid JSON shows "not valid JSON". |
 
-### 3.11 `test_week_plan.py` — rolling 7-day week plan (11)
+### 3.11 `test_week_plan.py` — rolling 7-day week plan + one-date rule (15)
 | Test | Checks |
 |------|--------|
 | `test_window_is_seven_days_from_today` | 7 day-groups, start=today, end=today+6, chronological; day 0 is today (weekday label correct). |
@@ -158,6 +159,10 @@ Last updated: 2026-08-01
 | `test_week_page_shows_seven_day_sections` | Rendered `/week` has 7 day sections + each day's date label + Today badge + Overdue backlog. |
 | `test_week_page_task_under_its_day` | A chapter planned today+3 shows on the page under that day's heading. |
 | `test_week_page_empty_day_shows_nothing_planned` | Days with no tasks render "Nothing planned.". |
+| `test_reassigning_moves_chapter` | Re-planning moves the chapter (off the old day, onto the new); appears once. |
+| `test_assign_same_date_twice_keeps_one` | Assigning the same date twice keeps a single entry. |
+| `test_chapter_appears_once_across_today_and_week` | A planned chapter shows once on the Today page and once in the week. |
+| `test_week_page_replan_shows_task_once` | Rendered `/week`: a re-planned chapter's title appears exactly once. |
 
 ## 4. Manual QA checklist (before a release)
 

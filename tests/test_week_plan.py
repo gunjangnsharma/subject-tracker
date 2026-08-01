@@ -112,6 +112,35 @@ def test_overdue_complete_excluded(subjects, planning):
     assert plan.backlog == []
 
 
+# --- One date per chapter (no duplicates) -------------------------------
+def test_reassigning_moves_chapter(subjects, planning):
+    ch = _chapter(subjects)
+    planning.assign(ch.id, TODAY)
+    planning.assign(ch.id, TODAY + timedelta(days=2))   # re-plan -> moves
+    plan = planning.rolling_plan(TODAY)
+    assert plan.days[0].items == []                      # no longer on today
+    assert [i.chapter.id for i in plan.days[2].items] == [ch.id]
+    assert sum(d.count for d in plan.days) == 1          # exactly one appearance
+
+
+def test_assign_same_date_twice_keeps_one(subjects, planning):
+    ch = _chapter(subjects)
+    planning.assign(ch.id, TODAY)
+    planning.assign(ch.id, TODAY)
+    plan = planning.rolling_plan(TODAY)
+    assert plan.days[0].count == 1
+
+
+def test_chapter_appears_once_across_today_and_week(subjects, planning):
+    ch = _chapter(subjects)
+    planning.assign(ch.id, TODAY)
+    day = planning.today_plan(TODAY)
+    week = planning.rolling_plan(TODAY)
+    assert [i.chapter.id for i in day.planned] == [ch.id]   # once on today's page
+    assert day.backlog == []
+    assert sum(d.count for d in week.days) == 1             # once in the week
+
+
 # --- Rendered /week page (real clock) -----------------------------------
 def test_week_page_shows_seven_day_sections(auth_client):
     today = date.today()
@@ -148,3 +177,22 @@ def test_week_page_empty_day_shows_nothing_planned(auth_client):
     # No tasks at all -> every day shows the empty state.
     page = auth_client.get("/week").get_data(as_text=True)
     assert "Nothing planned." in page
+
+
+def test_week_page_replan_shows_task_once(auth_client):
+    today = date.today()
+    auth_client.post("/subjects", data={"name": "S"}, follow_redirects=True)
+    auth_client.post("/subjects/1/modules", data={"name": "M"}, follow_redirects=True)
+    auth_client.post(
+        "/modules/1/chapters",
+        data={"title": "Solo Task", "kind": "video", "duration_minutes": "60"},
+        follow_redirects=True,
+    )
+    # Plan it twice, to different days.
+    auth_client.post("/chapters/1/plan", data={"planned_date": today.isoformat()},
+                     follow_redirects=True)
+    auth_client.post("/chapters/1/plan",
+                     data={"planned_date": (today + timedelta(days=2)).isoformat()},
+                     follow_redirects=True)
+    page = auth_client.get("/week").get_data(as_text=True)
+    assert page.count("Solo Task") == 1          # appears exactly once, on the latest day

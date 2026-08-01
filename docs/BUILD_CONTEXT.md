@@ -105,6 +105,15 @@ dataclass holding `total_minutes` + `completed_minutes`, with `remaining`,
 - **Percent** = `completed / total * 100`, or `0` when total is 0 (no divide-by-zero).
 
 ### 5.4 Planning & backlog rollover — derived from dates, no scheduler
+
+**One date per chapter.** A chapter can be planned on **at most one** date, so it
+never appears twice (across the day view, the week view, or any backlog).
+`PlanningService.assign` is an **upsert**: it deletes any existing assignment for
+the chapter, then adds the new one — re-planning *moves* the chapter. Backup
+import keeps only the first `plan_dates` entry per chapter. (Invariant maintained
+in code; the service and importer are the only writers, so no DB unique
+constraint is required.)
+
 - **Today view** for date `T`:
   - *Today's plan* = assignments with `planned_date == T`.
   - *Backlog* = assignments with `planned_date < T` **and** chapter not done. Shown as "carried from <date>".
@@ -302,7 +311,7 @@ Versioned document (`format: "subject-tracker-backup"`, `version: 1`):
     {"name": "...", "modules": [
       {"name": "...", "chapters": [
         {"title": "...", "kind": "video|text", "duration_minutes": 120,
-         "completion": 10, "plan_dates": ["YYYY-MM-DD"],
+         "completion": 10, "plan_dates": ["YYYY-MM-DD"],   // 0 or 1 (one date per chapter)
          "activity": [{"occurred_on": "YYYY-MM-DD", "minutes_delta": 120.0}]}
       ]}
     ]}
@@ -430,6 +439,13 @@ Each milestone is a single commit:
 - **Roll-ups computed, never stored**: eliminates drift; cheap at this scale.
 - **Backlog derived from dates, not moved**: idempotent, needs no scheduler, and
   finishing a chapter clears it everywhere automatically.
+- **One date per chapter**: `assign` is an upsert (re-planning moves the chapter),
+  so a chapter never appears in more than one day/section. Enforced in the service
+  + importer (they are the only writers) rather than a DB constraint, to avoid a
+  migration and keep old-backup imports working.
+- **Week plan = rolling 7-day window** (today..today+6) grouped by day, chosen over
+  a fixed Mon–Sun week so the user always sees the week *ahead* (per their T+7
+  request). The dashboard activity chart stays Mon–Sun.
 - **Week = Monday–Sunday (ISO)**; "today"/"week" use the **server's** `date.today()`
   (local tz), recomputed per request. Timezone-awareness deferred (§5.7).
 - **Activity log (ProgressEvent)** added because current completion can't say *when*

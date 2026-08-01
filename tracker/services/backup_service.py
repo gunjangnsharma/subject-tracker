@@ -148,8 +148,11 @@ class BackupService:
         chapter.completion = completion  # set verbatim (no activity side-effect)
         counts["chapters"] += 1
 
-        for raw in ch.get("plan_dates", []) or []:
-            self._plans.add(chapter.id, self._parse_date(raw, where, "plan_dates"))
+        # One date per chapter: keep only the first plan date (older backups may
+        # carry several; the current format emits at most one).
+        plan_dates = ch.get("plan_dates", []) or []
+        if plan_dates:
+            self._plans.add(chapter.id, self._parse_date(plan_dates[0], where, "plan_dates"))
             counts["plans"] += 1
 
         for ev in ch.get("activity", []) or []:

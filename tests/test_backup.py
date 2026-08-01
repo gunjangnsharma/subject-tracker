@@ -103,6 +103,24 @@ def test_import_preserves_completion_without_extra_activity(session, user_id):
     assert chapter["activity"] == []   # import must not fabricate activity
 
 
+def test_import_keeps_one_plan_date_per_chapter(session, user_id):
+    # Older backups may carry several plan_dates; import keeps only the first,
+    # honouring the one-date-per-chapter rule.
+    payload = {
+        "format": BACKUP_FORMAT, "version": BACKUP_VERSION,
+        "subjects": [{"name": "S", "modules": [
+            {"name": "M", "chapters": [
+                {"title": "C", "kind": "video", "duration_minutes": 60, "completion": 0,
+                 "plan_dates": ["2026-08-03", "2026-08-05"], "activity": []}
+            ]}
+        ]}],
+    }
+    summary = BackupService(session, user_id).import_data(payload)
+    assert summary.plans == 1
+    out = BackupService(session, user_id).export_data()
+    assert out["subjects"][0]["modules"][0]["chapters"][0]["plan_dates"] == ["2026-08-03"]
+
+
 def test_import_is_additive(session, user_id):
     subjects = SubjectService(session, user_id)
     subjects.add_subject("Existing")
