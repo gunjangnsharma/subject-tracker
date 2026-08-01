@@ -117,6 +117,33 @@ def test_completion_ajax_returns_json(auth_client):
     assert data["is_done"] is False
 
 
+def test_plan_requires_a_date(auth_client):
+    # Submitting the plan form without a date must NOT assign (previously it
+    # silently defaulted to today).
+    _make_chapter(auth_client)
+    auth_client.post("/chapters/1/plan", data={}, follow_redirects=True)
+    from datetime import date
+    # The chapter should not appear in today's plan.
+    page = auth_client.get("/today").get_data(as_text=True)
+    assert "Today's plan" in page
+    # No plan means nothing planned today.
+    assert page.count("plan-item") == 0
+    # And an error is flashed.
+    resp = auth_client.post("/chapters/1/plan", data={"planned_date": ""})
+    assert resp.status_code == 302
+    followed = auth_client.get("/today").get_data(as_text=True)
+    assert "Pick a date to plan" in followed
+
+
+def test_plan_with_a_date_assigns(auth_client):
+    from datetime import date
+    _make_chapter(auth_client)
+    auth_client.post("/chapters/1/plan", data={"planned_date": date.today().isoformat()},
+                     follow_redirects=True)
+    page = auth_client.get("/today").get_data(as_text=True)
+    assert page.count("plan-item") >= 1        # now it's planned for today
+
+
 def test_html_pages_are_not_cached(auth_client):
     # Dynamic HTML must not be cached, so the browser never shows a stale view.
     resp = auth_client.get("/today")

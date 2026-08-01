@@ -22,13 +22,14 @@ def _service() -> PlanningService:
     return PlanningService(g.session, current_user().id)
 
 
-def _parse_date(raw: str | None, default: date) -> date:
+def _parse_date(raw: str | None) -> date | None:
+    """Parse an ISO date, or None if it is missing/invalid (no silent default)."""
     if not raw:
-        return default
+        return None
     try:
         return datetime.strptime(raw, "%Y-%m-%d").date()
     except ValueError:
-        return default
+        return None
 
 
 @bp.get("/today")
@@ -45,11 +46,15 @@ def week():
 
 @bp.post("/chapters/<int:chapter_id>/plan")
 def assign(chapter_id: int):
-    planned_date = _parse_date(request.form.get("planned_date"), date.today())
+    back = request.referrer or url_for("planning.today")
+    planned_date = _parse_date(request.form.get("planned_date"))
+    if planned_date is None:
+        # A date is required — never assign to "today" by default.
+        flash("Pick a date to plan this chapter.", "error")
+        return redirect(back)
     try:
         _service().assign(chapter_id, planned_date)
-        flash("Chapter added to plan.", "info")
+        flash(f"Chapter planned for {planned_date.isoformat()}.", "info")
     except ValueError as exc:
         flash(str(exc), "error")
-    # Return to wherever the user came from, else today's plan.
-    return redirect(request.referrer or url_for("planning.today"))
+    return redirect(back)

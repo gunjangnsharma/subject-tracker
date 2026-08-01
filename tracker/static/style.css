@@ -526,3 +526,11 @@ input.input-invalid {
   accent-color: var(--accent-2);
   cursor: pointer;
 }
+
+/* Disabled buttons (e.g. Plan before a date is chosen) */
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: none;
+  box-shadow: none;
+}

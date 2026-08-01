@@ -231,6 +231,28 @@
     return isNaN(n) || n < 0 ? 0 : n;
   }
 
+  // --- Plan forms: only assign on an explicit "Plan" click ----------------
+  // The chapter must never be planned just by picking a date. We disable the
+  // Plan button until a date is chosen, and swallow Enter in the date field so
+  // the native picker can't implicitly submit the form.
+  function setupPlanForms() {
+    document.querySelectorAll(".plan-form").forEach(function (form) {
+      const dateEl = form.querySelector('input[type="date"]');
+      const btn = form.querySelector('button[type="submit"]');
+      if (!dateEl || !btn) return;
+
+      function sync() {
+        btn.disabled = !dateEl.value;
+      }
+      sync();
+      dateEl.addEventListener("input", sync);
+      dateEl.addEventListener("change", sync);
+      dateEl.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") e.preventDefault(); // no implicit submit
+      });
+    });
+  }
+
   // --- Dashboard charts (Chart.js) ----------------------------------------
   let dashboardData = null; // remembered so we can redraw on theme change
   let charts = [];
@@ -336,6 +358,7 @@
     runCounts();
     setupDatePickers();
     setupCompletionForms();
+    setupPlanForms();
     const toggle = document.getElementById("themeToggle");
     if (toggle) toggle.addEventListener("click", toggleTheme);
   });
