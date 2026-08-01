@@ -164,6 +164,8 @@ Dependencies point **inward**: `Routes → Services → Repositories → Models/
 ```
 subject-tracker/
 ├── run.py                     Entry point; HOST/PORT/DEBUG env handling (see §11).
+├── scripts/
+│   └── squash_duplicate_plans.py   CLI for the one-date cleanup (see §12.5).
 ├── requirements.txt           Pinned deps.
 ├── README.md                  Quick start (points here).
 ├── .gitignore                 Ignores .venv, *.db, __pycache__, .DS_Store, etc.
@@ -187,6 +189,8 @@ subject-tracker/
     ├── auth.py                 Session auth: login_user/logout_user/current_user,
     │                           load_logged_in_user (before_request), login_required,
     │                           admin_required. SESSION_KEY="user_id".
+    ├── maintenance.py          One-off cleanups: squash_duplicate_plans (keeps the
+    │                           most recent plan assignment per chapter).
     ├── repositories/           DATA ACCESS ONLY (the only layer touching the ORM).
     │   ├── user_repository.py       UserRepository(session): add/get/get_by_username/list_all.
     │   ├── subject_repository.py    SubjectRepository + ModuleRepository (session, user_id);
@@ -398,7 +402,17 @@ print("admin 'boss' created")
 PY
 ```
 
-### 12.5 Reset the database (schema change or clean slate)
+### 12.5 Squash duplicate plans (one-off cleanup)
+Data created before the one-date-per-chapter rule may have a chapter planned on
+several dates. Collapse them (keeps the most recent per chapter):
+```bash
+python scripts/squash_duplicate_plans.py --dry-run   # preview, no changes
+python scripts/squash_duplicate_plans.py             # apply
+```
+Idempotent and respects `SUBJECT_TRACKER_DB`. Logic lives in
+`tracker/maintenance.py` (`squash_duplicate_plans`).
+
+### 12.6 Reset the database (schema change or clean slate)
 There is **no migration tool**. Dev data is disposable — after a model change:
 ```bash
 rm -f subject_tracker.db        # then start the server to recreate the schema

@@ -1,7 +1,7 @@
 # Subject Tracker — Test Plan
 
 Every test and what it verifies. Built alongside the app. Run from
-`subject-tracker/` with `pytest` (94 tests). Suite runs against a fresh in-memory
+`subject-tracker/` with `pytest` (98 tests). Suite runs against a fresh in-memory
 SQLite database per test, so tests are isolated, deterministic and never touch the
 dev DB.
 
@@ -163,6 +163,14 @@ Last updated: 2026-08-01
 | `test_assign_same_date_twice_keeps_one` | Assigning the same date twice keeps a single entry. |
 | `test_chapter_appears_once_across_today_and_week` | A planned chapter shows once on the Today page and once in the week. |
 | `test_week_page_replan_shows_task_once` | Rendered `/week`: a re-planned chapter's title appears exactly once. |
+
+### 3.12 `test_maintenance.py` — squash duplicate plans (4)
+| Test | Checks |
+|------|--------|
+| `test_squash_keeps_most_recent_and_removes_rest` | 3 dup assignments → keeps highest id (latest), removes 2. |
+| `test_squash_leaves_single_assignment_untouched` | A chapter with one assignment is not touched. |
+| `test_squash_is_idempotent` | Running again removes nothing. |
+| `test_squash_handles_multiple_chapters` | Squashes several chapters at once; counts correct; singletons untouched. |
 
 ## 4. Manual QA checklist (before a release)
 
