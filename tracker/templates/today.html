@@ -6,12 +6,12 @@
 <h1>Today &middot; {{ plan.day }}</h1>
 
 <section>
-  <h2>Today's plan</h2>
-  {{ ui.plan_list(plan.planned) }}
+  <h2>Backlog <span class="muted">(unfinished from earlier days)</span></h2>
+  {{ ui.plan_list(plan.backlog, show_from=true) }}
 </section>
 
 <section>
-  <h2>Backlog <span class="muted">(unfinished from earlier days)</span></h2>
-  {{ ui.plan_list(plan.backlog, show_from=true) }}
+  <h2>Today's plan</h2>
+  {{ ui.plan_list(plan.planned) }}
 </section>
 {% endblock %}

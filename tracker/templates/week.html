@@ -6,6 +6,11 @@
 <h1 class="reveal">Week plan <span class="muted">{{ plan.start }} → {{ plan.end }}</span></h1>
 <p class="muted reveal">The next 7 days, one section per day. New days roll in as time passes.</p>
 
+<section class="reveal">
+  <h2>⏴ Overdue backlog <span class="muted">(unfinished, planned before today)</span></h2>
+  {{ ui.plan_list(plan.backlog, show_from=true) }}
+</section>
+
 {% for day in plan.days %}
   <section class="day-group reveal {{ 'is-today' if day.is_today else '' }}" style="--i: {{ loop.index0 }}">
     <div class="day-head">
@@ -22,9 +27,4 @@
     {% endif %}
   </section>
 {% endfor %}
-
-<section class="reveal">
-  <h2>⏴ Overdue backlog <span class="muted">(unfinished, planned before today)</span></h2>
-  {{ ui.plan_list(plan.backlog, show_from=true) }}
-</section>
 {% endblock %}
