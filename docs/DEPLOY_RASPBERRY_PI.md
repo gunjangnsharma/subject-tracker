@@ -140,10 +140,44 @@ sudo systemctl restart subject-tracker
 ```
 
 ## Backups (do this — SD cards fail eventually)
+
+The database runs in **WAL mode**, so recent commits may still live in the
+`app.db-wal` sidecar file. A plain `cp app.db` can therefore miss the newest data
+(or capture a torn state). Use one of these instead:
+
 ```bash
-cp ~/subject-tracker-data/app.db ~/app-$(date +%F).db     # copy the file
-# or use the app's per-account "Export JSON".
+# Best: let SQLite write a consistent single-file snapshot, even while running.
+sqlite3 ~/subject-tracker-data/app.db ".backup '$HOME/app-$(date +%F).db'"
+
+# Also fine (compacts as it copies):
+sqlite3 ~/subject-tracker-data/app.db "VACUUM INTO '$HOME/app-$(date +%F).db'"
+
+# Or use the app's per-account "Export JSON" (per user, not the whole DB).
 ```
+
+If you do copy files directly, stop the service first and copy **all three**:
+`app.db`, `app.db-wal`, `app.db-shm`.
+
+## Performance notes (why it's fast on a Pi)
+The app tunes SQLite on every connection (see `tracker/database.py`):
+- **WAL journal** — readers are never blocked by a write. Without this a single
+  delete takes an exclusive lock on the whole file and *every* page load stalls
+  behind it, which looks exactly like the UI hanging.
+- **`synchronous=NORMAL`** — no fsync per commit. This is the single biggest win
+  on SD cards, where each fsync can cost tens of milliseconds.
+- **`busy_timeout=5000`** — a second writer waits its turn instead of failing
+  with "database is locked".
+- **Indexes on every foreign key + the date columns** — SQLite does not create
+  these automatically, so without them each ownership check and join is a full
+  table scan.
+
+All of it applies to an **existing** database on the next restart: WAL is stored
+in the file itself, and `schema.ensure_indexes` creates any missing indexes at
+startup. No reset, no manual step.
+
+If the Pi still feels slow, the remaining known cost is per-page query count
+(N+1 relationship loading) and the 200 KB Chart.js bundle being sent on every
+page — see BUILD_CONTEXT §16.
 
 ## Pi-specific notes
 - **SD card longevity:** this app writes rarely, so SD wear is a non-issue for years.

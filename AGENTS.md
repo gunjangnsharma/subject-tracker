@@ -98,3 +98,11 @@ BUILD_CONTEXT §11).
   insertion order. A move **renumbers the whole module** rather than swapping two
   values — swapping two zeroes would be a silent no-op. Reordering is confined to
   one module: the swap partner is always a sibling.
+- **Don't remove the SQLite `_TUNING_PRAGMAS`** (`database.py`). WAL is what stops a
+  write from locking the whole file and freezing every other request; `synchronous=
+  NORMAL` is what stops an fsync per commit on SD cards. Both were real Raspberry Pi
+  bugs. Note WAL adds `-wal`/`-shm` sidecar files, so file-copy backups must use
+  `sqlite3 ... ".backup"` — see BUILD_CONTEXT §11.1.
+- **SQLite does not index foreign keys.** Any new FK or filtered column needs an
+  explicit `Index(...)` in `models.py`; `schema.ensure_indexes` backfills it into
+  already-deployed databases at startup.

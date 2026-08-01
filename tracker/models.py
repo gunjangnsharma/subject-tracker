@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from sqlalchemy import Date, Enum, Float, ForeignKey, Integer, String
+from sqlalchemy import Date, Enum, Float, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from tracker import domain
@@ -40,6 +40,9 @@ class User(Base):
 
 class Subject(Base):
     __tablename__ = "subjects"
+    # Every query is scoped to the logged-in user, so this index carries almost
+    # all subject lookups. SQLite does NOT index foreign keys automatically.
+    __table_args__ = (Index("ix_subjects_user_id", "user_id"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(
@@ -61,6 +64,7 @@ class Subject(Base):
 
 class Module(Base):
     __tablename__ = "modules"
+    __table_args__ = (Index("ix_modules_subject_id", "subject_id"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     subject_id: Mapped[int] = mapped_column(
@@ -85,6 +89,9 @@ class Module(Base):
 
 class Chapter(Base):
     __tablename__ = "chapters"
+    # (module_id, position) covers both "this module's chapters" and the
+    # (position, id) display ordering in one index.
+    __table_args__ = (Index("ix_chapters_module_id_position", "module_id", "position"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     module_id: Mapped[int] = mapped_column(
@@ -140,6 +147,12 @@ class PlanAssignment(Base):
     """
 
     __tablename__ = "plan_assignments"
+    __table_args__ = (
+        # Backlog/day/window queries all filter on planned_date...
+        Index("ix_plan_assignments_planned_date", "planned_date"),
+        # ...and the one-date-per-chapter upsert looks up by chapter_id.
+        Index("ix_plan_assignments_chapter_id", "chapter_id"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     chapter_id: Mapped[int] = mapped_column(
@@ -160,6 +173,11 @@ class ProgressEvent(Base):
     """
 
     __tablename__ = "progress_events"
+    __table_args__ = (
+        # The dashboard sums deltas for a day / a week.
+        Index("ix_progress_events_occurred_on", "occurred_on"),
+        Index("ix_progress_events_chapter_id", "chapter_id"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     chapter_id: Mapped[int] = mapped_column(

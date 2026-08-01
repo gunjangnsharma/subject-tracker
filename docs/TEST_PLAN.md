@@ -1,7 +1,7 @@
 # Subject Tracker — Test Plan
 
 Every test and what it verifies. Built alongside the app. Run from
-`subject-tracker/` with `pytest` (165 tests). Suite runs against a fresh in-memory
+`subject-tracker/` with `pytest` (180 tests). Suite runs against a fresh in-memory
 SQLite database per test, so tests are isolated, deterministic and never touch the
 dev DB.
 
@@ -267,6 +267,30 @@ round-tripping.
 | `test_export_lists_chapters_in_display_order` | Export reflects the reordered sequence, not id order. |
 | `test_import_preserves_chapter_order` | Import into another account reproduces the order and assigns positions `0..3`. |
 | `test_reexport_after_import_is_identical` | Export → import → re-export gives an identical `subjects` payload. |
+
+### 3.15 `test_performance.py` — SQLite tuning + indexes (15)
+
+Asserts the Raspberry Pi performance configuration is actually applied, including
+to a database created before it existed. The concurrency tests are regression
+tests for "deleting anything hangs the whole UI".
+
+| Test | Checks |
+|------|--------|
+| `test_wal_is_enabled` | `journal_mode=wal` — readers aren't blocked by a write. |
+| `test_synchronous_is_normal` | `synchronous=1` (NORMAL), not 2 (FULL): no fsync per commit. |
+| `test_busy_timeout_is_set` | `busy_timeout=5000` so a second writer waits rather than erroring. |
+| `test_foreign_keys_are_enforced` | `foreign_keys=1`, without which `ondelete="CASCADE"` is inert. |
+| `test_cache_and_temp_store_tuned` | ~8 MB page cache; temp b-trees in memory. |
+| `test_pragmas_apply_to_every_pooled_connection` | A second pooled connection is tuned too (set on `connect`). |
+| `test_memory_database_skips_wal_but_keeps_the_rest` | `:memory:` doesn't attempt WAL (unsupported) but still gets FK enforcement. |
+| `test_tuning_pragmas_are_documented` | Every pragma carries a rationale string. |
+| `test_fresh_database_has_every_index` | A new DB has all 7 declared indexes. |
+| `test_existing_database_gains_missing_indexes` | **The upgrade path:** indexes dropped to simulate an old deployment are recreated by `ensure_indexes`. |
+| `test_ensure_indexes_is_idempotent` | Nothing to create when already complete, twice over. |
+| `test_queries_use_indexes_not_table_scans` | `EXPLAIN QUERY PLAN` shows `USING INDEX` for the four hot lookups (user scoping, module chapters, plan dates, activity dates). |
+| `test_a_read_is_not_blocked_by_an_in_flight_write` | With an uncommitted EXCLUSIVE write open, a read still returns (<1 s) and sees the pre-write state. Under the old rollback journal this raised "database is locked". |
+| `test_concurrent_writes_queue_instead_of_failing` | 8 threads writing concurrently all succeed (busy_timeout), no "database is locked". |
+| `test_page_loads_while_a_delete_is_in_flight` | End-to-end: listing subjects completes while another thread deletes a 20-chapter subject. |
 
 ## 4. Manual QA checklist (before a release)
 

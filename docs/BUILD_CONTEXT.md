@@ -254,12 +254,14 @@ subject-tracker/
     │                           which fills the FROM_ENV settings at app-build time. Holds
     │                           DATABASE_URL, SECRET_KEY, MAX_CONTENT_LENGTH, cookie flags.
     ├── database.py             Base(DeclarativeBase); Database(url) → engine + scoped
-    │                           session; create_all() (also runs schema.ensure_columns);
-    │                           remove(). sqlite check_same_thread=False.
+    │                           session; _TUNING_PRAGMAS applied per connection (WAL,
+    │                           synchronous=NORMAL, busy_timeout, foreign_keys, cache,
+    │                           temp_store — see §11.1); create_all() (also runs
+    │                           schema.ensure_columns + ensure_indexes); remove().
     ├── schema.py               Additive schema reconciliation: ALTER TABLE ... ADD COLUMN
-    │                           for columns introduced after a table was first created
-    │                           (create_all never alters existing tables). Idempotent;
-    │                           adds only defaulted/nullable columns. See §12.7.
+    │                           for columns, CREATE INDEX IF NOT EXISTS for indexes,
+    │                           on tables that already exist (create_all only builds
+    │                           either for tables it creates). Idempotent. See §12.7.
     ├── models.py               ORM models User/Subject/Module/Chapter/PlanAssignment/
     │                           ProgressEvent + .progress/.is_done helpers; cascades; enums.
     │                           Chapter.position + Module.chapters ordered (position, id).
@@ -448,6 +450,41 @@ Read in `config.py` and `run.py`:
 `MAX_CONTENT_LENGTH = 8 MB` (fixed in config) caps uploads. Session cookies are
 `HttpOnly` + `SameSite=Lax` in every environment.
 
+### 11.1 SQLite tuning (`database.py`) — why the Pi was slow
+
+SQLite's defaults are wrong for a small multi-user web app on slow storage.
+`Database` applies `_TUNING_PRAGMAS` to **every** connection (a SQLAlchemy
+`connect` event, so pooled connections are covered too):
+
+| PRAGMA | Value | Why |
+|---|---|---|
+| `journal_mode` | `WAL` | **Readers are never blocked by the writer.** With the default rollback journal a writer takes an EXCLUSIVE lock on the whole file, so one `DELETE` stalls every other request — the "whole UI hangs" symptom. Persistent (stored in the file). |
+| `synchronous` | `NORMAL` | No fsync per commit. Measured ~13.9 ms/commit at `FULL` vs ~0.05 ms at `NORMAL`+WAL; on an SD card each fsync is far worse. Still crash-safe — you only risk the last few commits on a *power* loss. |
+| `busy_timeout` | `5000` | A second writer waits (ms) instead of raising "database is locked". |
+| `foreign_keys` | `ON` | SQLite disables FK enforcement by default, so the `ondelete="CASCADE"` FKs never fired — the ORM did all cascading in Python. |
+| `cache_size` | `-8000` | ~8 MB page cache (default 2 MB): fewer reads from slow storage. Fine on a 1 GB Pi. |
+| `temp_store` | `MEMORY` | Sort/join temporaries in RAM, not on the SD card. |
+
+WAL is skipped for `:memory:` databases (no file to lock, and it's unsupported
+there); the rest still applies.
+
+**Indexes.** SQLite does **not** index foreign keys automatically, so before this
+work the only index in a live database was the implicit one on `users.username` —
+every ownership check and join was a full table scan. The models now declare:
+`ix_subjects_user_id`, `ix_modules_subject_id`,
+`ix_chapters_module_id_position`, `ix_plan_assignments_planned_date`,
+`ix_plan_assignments_chapter_id`, `ix_progress_events_occurred_on`,
+`ix_progress_events_chapter_id`.
+
+**Both apply to an already-deployed database on the next restart** — WAL lives in
+the file, and `schema.ensure_indexes` creates missing indexes at startup. No
+reset, no manual step.
+
+**Backup caveat:** WAL means recent commits can be in `app.db-wal`, so a plain
+`cp app.db` may miss data. Use `sqlite3 app.db ".backup 'out.db'"` (or
+`VACUUM INTO`), or stop the service and copy `.db`, `.db-wal` and `.db-shm`
+together. The deploy guides say the same.
+
 ### Environments (`config.py`)
 - **dev** (`DevConfig`) — Flask dev server; **templates auto-reload** on change;
   debugger available on localhost via `DEBUG=1`.
@@ -590,12 +627,17 @@ closes that gap for the common case:
 - it runs `ALTER TABLE ... ADD COLUMN` for columns listed in `_ADDED_COLUMNS`,
 - **only** for columns that are nullable or have a server default (so existing
   rows get a value),
-- it is **idempotent** — present columns are skipped, so it is safe on every boot,
+- it runs `CREATE INDEX IF NOT EXISTS` (`ensure_indexes`) for every index the
+  models declare, since `create_all` only builds indexes for tables it creates —
+  an existing table would otherwise keep scanning,
+- it is **idempotent** — present columns and indexes are skipped, so it is safe on
+  every boot,
 - it never drops, renames, retypes or reorders anything.
 
-So **adding a defaulted column needs no reset**: add the field to the model, add
-one line to `_ADDED_COLUMNS`, and existing databases upgrade themselves on the
-next start. This is how `Chapter.position` shipped (see §5.8).
+So **adding a defaulted column or an index needs no reset**: add it to the model
+(and, for a column, one line in `_ADDED_COLUMNS`) and existing databases upgrade
+themselves on the next start. This is how `Chapter.position` and the performance
+indexes (§11.1) shipped.
 
 Anything else — dropping a column, changing a type, adding a NOT NULL column with
 no default, new constraints — is still a manual reset. Dev data is disposable:
@@ -683,6 +725,9 @@ original build; the rest are incremental features and fixes.
 28. **reorder** — chapters are reorderable within a module (`Chapter.position`, ▲/▼
     buttons, `POST /chapters/<id>/move`) + `schema.ensure_columns` so existing
     databases gain the column without a reset.
+29. **perf** — SQLite tuned for slow storage (WAL fixes writes blocking the whole
+    UI; `synchronous=NORMAL` kills the per-commit fsync) + indexes on every FK and
+    date column, backfilled into existing databases by `schema.ensure_indexes`.
 
 ## 15. Decisions & assumptions log (why, not just what)
 
@@ -768,6 +813,16 @@ original build; the rest are incremental features and fixes.
   columns lets features like `Chapter.position` ship without asking users to
   delete their data — while stopping well short of being a migration framework
   (Alembic remains the answer for anything more).
+- **SQLite tuned per connection rather than "SQLite is too slow, switch to
+  Postgres"** (§11.1): the real causes on a Raspberry Pi were the default
+  rollback journal (a writer exclusively locks the file, so any delete froze
+  every other request) and `synchronous=FULL` (an fsync per commit, brutal on an
+  SD card), plus **no indexes on foreign keys** — SQLite doesn't create them.
+  WAL + `synchronous=NORMAL` + FK indexes address all three and keep the
+  zero-server deployment. Rejected "run the UI and writes on separate threads":
+  waitress already uses 4 threads; the serialization was a lock on the database
+  *file*, one layer below Python, so threading it differently would not have
+  helped. WAL is the correct form of that idea.
 - **No DB migrations**: dev data disposable; recreate the file on schema change.
   Alembic is the documented upgrade path.
 - **App isolated under `subject-tracker/`** with its own git repo so it doesn't
@@ -780,3 +835,9 @@ original build; the rest are incremental features and fixes.
 - Chapters have a `title` (heading) but no free-text description field.
 - Backup import is additive only (no replace/restore-in-place mode).
 - Admin creation is via shell, not UI.
+- **Known remaining performance cost** (after §11.1): relationships load lazily,
+  so pages issue more queries than needed (measured: `/` 16, `/week` 18, one
+  subject delete 34 — mostly N+1 on `chapters`/`modules`). Fix with eager loading
+  (`selectinload`) in the repositories. Also, every page sends the 200 KB vendored
+  Chart.js even though only the dashboard draws charts, and `Cache-Control:
+  no-store` is broad. Both matter over Wi-Fi on a Pi.

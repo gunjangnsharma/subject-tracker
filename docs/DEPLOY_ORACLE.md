@@ -149,12 +149,19 @@ sudo systemctl restart subject-tracker
 ```
 
 ## Backups
-It's just a file — copy it off the box on a schedule:
+The database runs in **WAL mode**, so recent commits may still be in the
+`app.db-wal` sidecar — a plain `cp app.db` can miss the newest data. Take a
+consistent snapshot instead (works while the service is running):
 ```bash
-cp ~/subject-tracker-data/app.db ~/backups/app-$(date +%F).db
+sqlite3 ~/subject-tracker-data/app.db ".backup '$HOME/backups/app-$(date +%F).db'"
 ```
+If you copy files directly, stop the service and copy `app.db`, `app.db-wal` and
+`app.db-shm` together.
+
 Or use the app's **Export JSON** per account. Schema change with no migration?
-Stop the service, delete `app.db`, start again (dev data is disposable; back up first).
+Adding a defaulted column or an index needs nothing — the app reconciles those at
+startup. For anything else: stop the service, delete `app.db`, start again (dev
+data is disposable; back up first).
 
 ## Operate
 - Logs: `journalctl -u subject-tracker -f`
