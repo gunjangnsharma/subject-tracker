@@ -31,8 +31,10 @@ ssh pi@raspberrypi.local        # or ssh pi@<PI_LAN_IP>
 ## 1. Install packages
 ```bash
 sudo apt-get update
-sudo apt-get install -y python3-venv python3-pip git
+sudo apt-get install -y python3-venv python3-pip git sqlite3
 ```
+(`sqlite3` is the command-line tool, used for backups later. It is a *separate*
+package from Python's built-in `sqlite3` module, which the app itself uses.)
 
 ## 2. Get the app and install it
 ```bash
@@ -134,10 +136,28 @@ so use HTTPS and strong passwords.
 
 ## Updating
 ```bash
+# 1. Snapshot the data first (see Backups below for why not plain cp).
+sqlite3 ~/subject-tracker-data/app.db ".backup '$HOME/app-$(date +%F).db'"
+# 2. Pull and restart.
 cd ~/subject-tracker && git pull
 ./.venv/bin/pip install -r requirements.txt      # if deps changed
 sudo systemctl restart subject-tracker
+sudo systemctl status subject-tracker            # confirm "active (running)"
 ```
+
+**Schema changes need no reset.** New defaulted columns and indexes are applied to
+your existing database at startup (`tracker/schema.py`) — that is how the chapter
+`position` column and the performance indexes arrived. Only a drop/retype/new
+constraint would require recreating the file.
+
+**If it fails to start after an update**, read the log first:
+```bash
+journalctl -u subject-tracker -e | tail -20
+```
+`RuntimeError: Refusing to start in production with the default SECRET_KEY` means
+`/etc/subject-tracker.env` isn't being read (wrong path, or unreadable by the
+service user) — not that the code is broken. Prod deliberately refuses to boot
+rather than fall back to the shipped dev secret.
 
 ## Backups (do this — SD cards fail eventually)
 
@@ -155,8 +175,30 @@ sqlite3 ~/subject-tracker-data/app.db "VACUUM INTO '$HOME/app-$(date +%F).db'"
 # Or use the app's per-account "Export JSON" (per user, not the whole DB).
 ```
 
+No `sqlite3` command (skipped it in §1)? Python can do the same thing — it ships
+with the `sqlite3` module:
+```bash
+python3 - <<PY
+import sqlite3, datetime
+src = sqlite3.connect("/home/pi/subject-tracker-data/app.db")
+dst = sqlite3.connect(f"/home/pi/app-{datetime.date.today()}.db")
+with dst: src.backup(dst)          # consistent snapshot, safe while running
+print("backed up")
+PY
+```
+
 If you do copy files directly, stop the service first and copy **all three**:
 `app.db`, `app.db-wal`, `app.db-shm`.
+
+**Restoring:** drop the file back and restart — the app reconciles the schema on
+boot (`schema.ensure_columns` / `ensure_indexes`), so a snapshot from an older
+version opens without a reset:
+```bash
+sudo systemctl stop subject-tracker
+cp ~/app-2026-08-02.db ~/subject-tracker-data/app.db
+rm -f ~/subject-tracker-data/app.db-wal ~/subject-tracker-data/app.db-shm
+sudo systemctl start subject-tracker
+```
 
 ## Performance notes (why it's fast on a Pi)
 The app tunes SQLite on every connection (see `tracker/database.py`):
